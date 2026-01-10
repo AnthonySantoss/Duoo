@@ -181,8 +181,6 @@ const CreditCards = () => {
             current_debt: parseFloat(cardFormData.current_used_limit) || 0
         };
 
-        console.log('Sending credit card payload:', payload);
-
         try {
             if (editingCard) {
                 await api.put(`/credit-cards/${editingCard.id}`, payload);
