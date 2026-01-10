@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardLayout = () => {
@@ -8,7 +8,12 @@ const DashboardLayout = () => {
     const location = useLocation();
     const [viewMode, setViewMode] = useState('joint');
 
-    const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+    const isActive = (path) => {
+        if (path === '/dashboard') {
+            return location.pathname === '/dashboard';
+        }
+        return location.pathname === path || location.pathname.startsWith(`${path}/`);
+    };
 
     const navItems = [
         { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
@@ -19,6 +24,7 @@ const DashboardLayout = () => {
         { path: '/dashboard/statement', icon: <FileText size={20} />, label: 'Extrato' },
         { path: '/dashboard/wallets', icon: <Landmark size={20} />, label: 'Carteiras' },
         { path: '/dashboard/investments', icon: <CreditCard size={20} />, label: 'Cartões de Crédito' },
+        { path: '/dashboard/economy-forecast', icon: <TrendingUp size={20} />, label: 'Previsão' },
     ];
 
     return (
@@ -86,9 +92,16 @@ const DashboardLayout = () => {
                 <header className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-bold capitalize">
-                            {navItems.find(i => isActive(i.path))?.label || 'Dashboard'}
+                            {navItems.find(i => isActive(i.path))?.label || 'Visão Geral'}
                         </h2>
-                        <p className="text-slate-500 text-sm italic">Bem-vindo, {user?.name || 'Usuário'}.</p>
+                        {location.pathname === '/dashboard' && (
+                            <p className="text-slate-500 text-sm italic">
+                                {hasPartner
+                                    ? `Bem-vindos, ${user?.name || 'Usuário'} & ${partner?.name || 'Parceiro'}!`
+                                    : `Bem-vindo, ${user?.name || 'Usuário'}.`
+                                }
+                            </p>
+                        )}
                     </div>
 
                     {hasPartner ? (

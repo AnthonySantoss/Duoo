@@ -11,6 +11,7 @@ const exportRoutes = require('./routes/exportRoutes');
 const importRoutes = require('./routes/importRoutes');
 const creditCardRoutes = require('./routes/creditCardRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use('/api/export', exportRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/credit-cards', creditCardRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 module.exports = app;

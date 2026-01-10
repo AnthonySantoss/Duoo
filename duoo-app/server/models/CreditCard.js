@@ -26,6 +26,10 @@ const CreditCard = sequelize.define('CreditCard', {
     user_id: {
         type: DataTypes.UUID,
         allowNull: false
+    },
+    is_joint: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
     }
 });
 

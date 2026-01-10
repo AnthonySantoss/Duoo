@@ -1,4 +1,4 @@
-const { Transaction, Wallet, User, Goal } = require('../models');
+const { Transaction, Wallet, User, Goal, CreditCard, CreditCardInvoice } = require('../models');
 const { Op } = require('sequelize');
 
 exports.getDashboardStats = async (req, res) => {
@@ -99,6 +99,25 @@ exports.getDashboardStats = async (req, res) => {
         // Calculate saved as income minus expenses (simplified)
         saved = income - spent;
         if (saved < 0) saved = 0;
+
+        // Calculate credit card invoices for current month
+        const creditCards = await CreditCard.findAll({
+            where: { user_id: { [Op.in]: userFilter } }
+        });
+
+        const cardIds = creditCards.map(c => c.id);
+
+        if (cardIds.length > 0) {
+            const invoices = await CreditCardInvoice.findAll({
+                where: {
+                    credit_card_id: { [Op.in]: cardIds },
+                    month: currentMonth + 1, // Month is 1-12, getMonth() returns 0-11
+                    year: currentYear
+                }
+            });
+
+            creditCard = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+        }
 
         // Return structured data
         const responseData = {

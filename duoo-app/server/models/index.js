@@ -6,6 +6,7 @@ const Goal = require('./Goal');
 const CreditCard = require('./CreditCard');
 const CreditCardPurchase = require('./CreditCardPurchase');
 const Simulation = require('./Simulation');
+const CreditCardInvoice = require('./CreditCardInvoice');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -29,6 +30,9 @@ CreditCardPurchase.belongsTo(CreditCard, { foreignKey: 'credit_card_id' });
 User.hasMany(Simulation, { foreignKey: 'user_id' });
 Simulation.belongsTo(User, { foreignKey: 'user_id' });
 
+CreditCard.hasMany(CreditCardInvoice, { foreignKey: 'credit_card_id' });
+CreditCardInvoice.belongsTo(CreditCard, { foreignKey: 'credit_card_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -37,5 +41,6 @@ module.exports = {
     Goal,
     CreditCard,
     CreditCardPurchase,
-    Simulation
+    Simulation,
+    CreditCardInvoice
 };

@@ -43,15 +43,38 @@ exports.getCreditCards = async (req, res) => {
             allowedUsers.push(user.partner_id);
         }
 
-        let userFilter = allowedUsers;
-        if (viewMode === 'user1' || viewMode === 'user2') {
-            userFilter = [userId];
+        let whereClause = {};
+
+        if (viewMode === 'joint') {
+            // Show all cards (joint + individual from both users)
+            whereClause = {
+                user_id: { [Op.in]: allowedUsers }
+            };
+        } else if (viewMode === 'user1') {
+            // Show joint cards + individual cards from logged user
+            whereClause = {
+                [Op.or]: [
+                    { is_joint: true, user_id: { [Op.in]: allowedUsers } },
+                    { is_joint: false, user_id: userId }
+                ]
+            };
+        } else if (viewMode === 'user2' && user.partner_id) {
+            // Show joint cards + individual cards from partner
+            whereClause = {
+                [Op.or]: [
+                    { is_joint: true, user_id: { [Op.in]: allowedUsers } },
+                    { is_joint: false, user_id: user.partner_id }
+                ]
+            };
+        } else {
+            // Default: show all
+            whereClause = {
+                user_id: { [Op.in]: allowedUsers }
+            };
         }
 
         const creditCards = await CreditCard.findAll({
-            where: {
-                user_id: { [Op.in]: userFilter }
-            },
+            where: whereClause,
             include: [
                 { model: User, attributes: ['name'] },
                 {
@@ -92,14 +115,15 @@ exports.getCreditCards = async (req, res) => {
 
 exports.createCreditCard = async (req, res) => {
     try {
-        const { name, limit, due_day, closing_day } = req.body;
+        const { name, limit, due_day, closing_day, is_joint } = req.body;
 
         const creditCard = await CreditCard.create({
             name,
             limit: parseFloat(limit),
             due_day: parseInt(due_day),
             closing_day: parseInt(closing_day),
-            user_id: req.user.id
+            user_id: req.user.id,
+            is_joint: is_joint !== undefined ? is_joint : true
         });
 
         res.status(201).json(creditCard);
@@ -112,7 +136,7 @@ exports.createCreditCard = async (req, res) => {
 exports.updateCreditCard = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, limit, due_day, closing_day } = req.body;
+        const { name, limit, due_day, closing_day, is_joint } = req.body;
 
         const creditCard = await CreditCard.findByPk(id);
         if (!creditCard) {
@@ -131,6 +155,9 @@ exports.updateCreditCard = async (req, res) => {
         creditCard.limit = parseFloat(limit);
         creditCard.due_day = parseInt(due_day);
         creditCard.closing_day = parseInt(closing_day);
+        if (is_joint !== undefined) {
+            creditCard.is_joint = is_joint;
+        }
         await creditCard.save();
 
         res.json(creditCard);

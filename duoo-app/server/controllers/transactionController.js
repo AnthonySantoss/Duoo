@@ -6,15 +6,19 @@ exports.getTransactions = async (req, res) => {
         const { viewMode, search } = req.query;
         const userId = req.user.id;
 
-        // Build where clause
+        // Get user to check for partner
+        const user = await User.findByPk(userId);
         let whereClause = {};
 
-        // Filter by viewMode (user's transactions or partner's or both)
-        if (viewMode === 'user1' || viewMode === 'user2') {
+        // Filter by viewMode
+        if (viewMode === 'user1') {
+            // Show only logged user's transactions
             whereClause.user_id = userId;
+        } else if (viewMode === 'user2' && user.partner_id) {
+            // Show only partner's transactions
+            whereClause.user_id = user.partner_id;
         } else if (viewMode === 'joint') {
-            // Get user and partner transactions
-            const user = await User.findByPk(userId);
+            // Show both user and partner transactions
             const partnerIds = [userId];
             if (user.partner_id) {
                 partnerIds.push(user.partner_id);

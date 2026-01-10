@@ -19,3 +19,8 @@
 .animation-scale-up {
     @apply animate-scale-up;
 }
+
+/* Hide scrollbar for horizontal scroll */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}

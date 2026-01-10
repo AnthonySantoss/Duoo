@@ -37,16 +37,29 @@ exports.getSimulationData = async (req, res) => {
             }
         });
 
-        let totalIncome = 0;
-        let totalExpense = 0;
+        // Group transactions by month to calculate real average
+        const monthlyStats = {};
+
         transactions.forEach(t => {
-            if (t.type === 'income') totalIncome += parseFloat(t.amount);
-            if (t.type === 'expense') totalExpense += parseFloat(t.amount);
+            const date = new Date(t.date);
+            const key = `${date.getFullYear()}-${date.getMonth()}`;
+
+            if (!monthlyStats[key]) {
+                monthlyStats[key] = { income: 0, expense: 0 };
+            }
+
+            if (t.type === 'income') monthlyStats[key].income += parseFloat(t.amount);
+            if (t.type === 'expense') monthlyStats[key].expense += parseFloat(t.amount);
         });
 
-        // Simple average: (Total Income - Total Expense) / 3
-        // Note: Use actual number of months if less than 3 available? assuming 3 for simple projection.
-        const averageSavings = (totalIncome - totalExpense) / 3;
+        const monthsFound = Object.keys(monthlyStats).length;
+        let totalMonthlySavings = 0;
+
+        Object.values(monthlyStats).forEach(month => {
+            totalMonthlySavings += (month.income - month.expense);
+        });
+
+        const averageSavings = monthsFound > 0 ? totalMonthlySavings / monthsFound : 0;
 
         // 3. History
         const history = await Simulation.findAll({
@@ -62,7 +75,8 @@ exports.getSimulationData = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching simulation data:', error);
-        res.status(500).json({ error: 'Failed to fetch simulation data' });
+        console.error(error.stack); // Log full stack trace
+        res.status(500).json({ error: 'Failed to fetch simulation data', details: error.message });
     }
 };
 

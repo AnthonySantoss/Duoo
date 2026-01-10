@@ -13,6 +13,7 @@ import Simulation from './pages/Simulation';
 import Forecast from './pages/Forecast';
 import Statement from './pages/Statement';
 import Investments from './pages/Investments';
+import EconomyForecast from './pages/EconomyForecast';
 
 const ProtectedRoute = ({ children }) => {
   // Simple check, real app would check AuthContext loading state
@@ -39,6 +40,7 @@ function App() {
             <Route path="investments" element={<Investments />} />
             <Route path="link-accounts" element={<LinkAccounts />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="economy-forecast" element={<EconomyForecast />} />
 
             {/* Fallback for other routes */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
