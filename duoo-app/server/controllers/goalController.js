@@ -1,4 +1,4 @@
-const { Goal, User } = require('../models');
+const { Goal, User, Transaction, Wallet } = require('../models');
 const { Op } = require('sequelize');
 
 exports.getGoals = async (req, res) => {
@@ -124,12 +124,14 @@ exports.deleteGoal = async (req, res) => {
 };
 
 exports.addProgress = async (req, res) => {
+    const t = await Transaction.sequelize.transaction();
     try {
         const { id } = req.params;
-        const { amount } = req.body;
+        const { amount, wallet_id } = req.body;
 
-        const goal = await Goal.findByPk(id);
+        const goal = await Goal.findByPk(id, { transaction: t });
         if (!goal) {
+            await t.rollback();
             return res.status(404).json({ error: 'Meta não encontrada' });
         }
 
@@ -139,14 +141,44 @@ exports.addProgress = async (req, res) => {
         if (user.partner_id) allowedUsers.push(user.partner_id);
 
         if (!allowedUsers.includes(goal.user_id)) {
+            await t.rollback();
             return res.status(403).json({ error: 'Você não tem permissão para atualizar esta meta' });
         }
 
-        goal.current_amount = parseFloat(goal.current_amount) + parseFloat(amount);
-        await goal.save();
+        // If wallet_id is provided, create a transaction to deduct the amount
+        // If wallet_id is provided, create a transaction to deduct the amount
+        if (wallet_id) {
+            const wallet = await Wallet.findByPk(wallet_id, { transaction: t });
+            if (!wallet) {
+                await t.rollback();
+                return res.status(404).json({ error: 'Carteira não encontrada' });
+            }
 
+            const deductionAmount = -Math.abs(parseFloat(amount));
+
+            // Deduct from wallet (Create Expense Transaction)
+            await Transaction.create({
+                title: `Destinado para meta: ${goal.title}`,
+                amount: deductionAmount, // Ensure negative
+                type: 'expense',
+                category: 'Investimento',
+                wallet_id: wallet.id,
+                user_id: req.user.id,
+                date: new Date()
+            }, { transaction: t });
+
+            // Update wallet balance
+            wallet.balance = parseFloat(wallet.balance) + deductionAmount;
+            await wallet.save({ transaction: t });
+        }
+
+        goal.current_amount = parseFloat(goal.current_amount) + parseFloat(amount);
+        await goal.save({ transaction: t });
+
+        await t.commit();
         res.json(goal);
     } catch (error) {
+        await t.rollback();
         console.error('Error in addProgress:', error);
         res.status(500).json({ error: error.message });
     }

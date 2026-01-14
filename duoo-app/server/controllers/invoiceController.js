@@ -1,4 +1,4 @@
-const { CreditCardInvoice, CreditCard, User } = require('../models');
+const { CreditCardInvoice, CreditCard, User, Transaction, Wallet } = require('../models');
 const { Op } = require('sequelize');
 
 // Get all invoices for user's credit cards
@@ -68,12 +68,13 @@ exports.getCurrentMonthTotal = async (req, res) => {
 
         const cardIds = creditCards.map(c => c.id);
 
-        // Sum invoices for current month
+        // Sum UNPAID invoices for current month
         const invoices = await CreditCardInvoice.findAll({
             where: {
                 credit_card_id: { [Op.in]: cardIds },
                 month: currentMonth,
-                year: currentYear
+                year: currentYear,
+                paid: false // Only count unpaid invoices
             }
         });
 
@@ -88,12 +89,14 @@ exports.getCurrentMonthTotal = async (req, res) => {
 
 // Create or update invoice
 exports.upsertInvoice = async (req, res) => {
+    const t = await Transaction.sequelize.transaction();
     try {
-        const { credit_card_id, month, year, amount, due_date, paid, paid_date } = req.body;
+        const { credit_card_id, month, year, amount, due_date, paid, paid_date, wallet_id } = req.body;
 
         // Validate card belongs to user or partner
-        const card = await CreditCard.findByPk(credit_card_id);
+        const card = await CreditCard.findByPk(credit_card_id, { transaction: t });
         if (!card) {
+            await t.rollback();
             return res.status(404).json({ error: 'Cartão não encontrado' });
         }
 
@@ -102,26 +105,59 @@ exports.upsertInvoice = async (req, res) => {
         if (user.partner_id) allowedUsers.push(user.partner_id);
 
         if (!allowedUsers.includes(card.user_id)) {
+            await t.rollback();
             return res.status(403).json({ error: 'Você não tem permissão para este cartão' });
         }
 
         // Find existing invoice or create new
         const [invoice, created] = await CreditCardInvoice.findOrCreate({
             where: { credit_card_id, month, year },
-            defaults: { amount, due_date, paid: paid || false, paid_date }
+            defaults: { amount, due_date, paid: paid || false, paid_date },
+            transaction: t
         });
+
+        const wasPaid = invoice.paid;
+        const nowPaid = paid || false;
 
         if (!created) {
             // Update existing
             invoice.amount = amount;
             invoice.due_date = due_date;
-            invoice.paid = paid || false;
+            invoice.paid = nowPaid;
             invoice.paid_date = paid_date || null;
-            await invoice.save();
+            await invoice.save({ transaction: t });
         }
 
+        // If invoice is being marked as paid and wasn't paid before
+        if (nowPaid && !wasPaid && wallet_id) {
+            const wallet = await Wallet.findByPk(wallet_id, { transaction: t });
+            if (!wallet) {
+                await t.rollback();
+                return res.status(404).json({ error: 'Carteira não encontrada' });
+            }
+
+            const deductionAmount = -Math.abs(parseFloat(amount));
+
+            // Create expense transaction
+            await Transaction.create({
+                title: `Pagamento fatura ${card.name} - ${month}/${year}`,
+                amount: deductionAmount,
+                type: 'expense',
+                category: 'Cartão de Crédito',
+                wallet_id: wallet.id,
+                user_id: req.user.id,
+                date: paid_date || new Date()
+            }, { transaction: t });
+
+            // Update wallet balance
+            wallet.balance = parseFloat(wallet.balance) + deductionAmount;
+            await wallet.save({ transaction: t });
+        }
+
+        await t.commit();
         res.json(invoice);
     } catch (error) {
+        await t.rollback();
         console.error('Error upserting invoice:', error);
         res.status(500).json({ error: error.message });
     }

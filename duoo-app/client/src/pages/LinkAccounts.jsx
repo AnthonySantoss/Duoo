@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link as LinkIcon, CheckCircle2, Settings as SettingsIcon, Unlink, QrCode, Copy, AlertCircle } from 'lucide-react';
+import { Link as LinkIcon, CheckCircle2, Settings as SettingsIcon, Unlink, QrCode, Copy } from 'lucide-react';
 import Card from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import Toast from '../components/ui/Toast';
 
 const LinkAccounts = () => {
     const { user, partner, hasPartner } = useAuth();
     const [partnerCode, setPartnerCode] = useState('');
     const [myCode, setMyCode] = useState('');
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+    const [toast, setToast] = useState(null);
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -33,23 +34,23 @@ const LinkAccounts = () => {
 
     const handleLinkPartner = async () => {
         if (!partnerCode.trim()) {
-            setMessage({ type: 'error', text: 'Por favor, insira o código do parceiro.' });
+            setToast({ type: 'error', message: 'Por favor, insira o código do parceiro.' });
             return;
         }
 
         setLoading(true);
-        setMessage({ type: '', text: '' });
+        setToast(null);
 
         try {
             const res = await api.post('/partner/link', { partnerCode: partnerCode.trim() });
-            setMessage({ type: 'success', text: res.data.message });
+            setToast({ type: 'success', message: res.data.message });
             setPartnerCode('');
             // Reload page to update partner info
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
-            setMessage({
+            setToast({
                 type: 'error',
-                text: error.response?.data?.error || 'Erro ao vincular conta.'
+                message: error.response?.data?.error || 'Erro ao vincular conta.'
             });
         } finally {
             setLoading(false);
@@ -62,17 +63,17 @@ const LinkAccounts = () => {
         }
 
         setLoading(true);
-        setMessage({ type: '', text: '' });
+        setToast(null);
 
         try {
             const res = await api.post('/partner/unlink');
-            setMessage({ type: 'success', text: res.data.message });
+            setToast({ type: 'success', message: res.data.message });
             // Reload page to update partner info
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
-            setMessage({
+            setToast({
                 type: 'error',
-                text: error.response?.data?.error || 'Erro ao desvincular conta.'
+                message: error.response?.data?.error || 'Erro ao desvincular conta.'
             });
         } finally {
             setLoading(false);
@@ -81,16 +82,6 @@ const LinkAccounts = () => {
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
-            {message.text && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 ${message.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : 'bg-rose-50 text-rose-800 border border-rose-200'
-                    }`}>
-                    <AlertCircle size={20} />
-                    <span className="font-medium">{message.text}</span>
-                </div>
-            )}
-
             {hasPartner ? (
                 <Card className="text-center py-12">
                     <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -200,6 +191,13 @@ const LinkAccounts = () => {
                     )}
                 </div>
             </Card>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

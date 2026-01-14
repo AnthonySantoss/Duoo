@@ -4,6 +4,7 @@ import { Search, Filter, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriang
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
+import Toast from '../components/ui/Toast';
 
 const Transactions = () => {
     const { viewMode } = useOutletContext();
@@ -13,6 +14,7 @@ const Transactions = () => {
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState(null);
+    const [toast, setToast] = useState(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -76,6 +78,11 @@ const Transactions = () => {
     };
 
     const handleOpenModal = (transaction = null) => {
+        if (!transaction && wallets.length === 0) {
+            setToast({ message: 'É necessário criar uma carteira antes de adicionar uma transação.', type: 'info' });
+            return;
+        }
+
         if (transaction) {
             setEditingTransaction(transaction);
             setFormData({
@@ -134,7 +141,7 @@ const Transactions = () => {
             });
         } catch (error) {
             console.error('Failed to save transaction:', error);
-            alert(error.response?.data?.error || 'Erro ao salvar transação');
+            setToast({ message: error.response?.data?.error || 'Erro ao salvar transação', type: 'error' });
         }
     };
 
@@ -146,7 +153,7 @@ const Transactions = () => {
             fetchTransactions();
         } catch (error) {
             console.error('Failed to delete transaction:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir transação');
+            setToast({ message: error.response?.data?.error || 'Erro ao excluir transação', type: 'error' });
         }
     };
 
@@ -344,6 +351,13 @@ const Transactions = () => {
                     </button>
                 </form>
             </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

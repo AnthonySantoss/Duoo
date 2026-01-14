@@ -6,6 +6,8 @@ import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
+import Toast from '../components/ui/Toast';
+
 const Wallets = () => {
     const { viewMode } = useOutletContext();
     const { user, partner } = useAuth();
@@ -13,6 +15,7 @@ const Wallets = () => {
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingWallet, setEditingWallet] = useState(null);
+    const [toast, setToast] = useState(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -105,7 +108,7 @@ const Wallets = () => {
             setFormData({ name: '', type: 'digital', provider: 'nubank', balance: '' });
         } catch (error) {
             console.error('Failed to save wallet:', error);
-            alert(error.response?.data?.error || 'Erro ao salvar carteira');
+            setToast({ message: error.response?.data?.error || 'Erro ao salvar carteira', type: 'error' });
         }
     };
 
@@ -117,7 +120,7 @@ const Wallets = () => {
             fetchWallets();
         } catch (error) {
             console.error('Failed to delete wallet:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir carteira');
+            setToast({ message: error.response?.data?.error || 'Erro ao excluir carteira', type: 'error' });
         }
     };
 
@@ -270,6 +273,13 @@ const Wallets = () => {
                     </button>
                 </form>
             </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

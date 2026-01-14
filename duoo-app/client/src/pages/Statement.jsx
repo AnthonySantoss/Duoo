@@ -4,6 +4,7 @@ import { PlusCircle, UploadCloud, FileText, FileSpreadsheet, Download, CheckCirc
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
+import Toast from '../components/ui/Toast';
 
 const Statement = () => {
     const { viewMode } = useOutletContext();
@@ -15,6 +16,7 @@ const Statement = () => {
     const [importResult, setImportResult] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef(null);
+    const [toast, setToast] = useState(null);
 
     const [manualTrans, setManualTrans] = useState({
         title: '',
@@ -46,7 +48,7 @@ const Statement = () => {
         e.preventDefault();
 
         if (!manualTrans.title || !manualTrans.amount || !manualTrans.wallet_id) {
-            alert('Preencha todos os campos obrigatórios');
+            setToast({ message: 'Preencha todos os campos obrigatórios', type: 'error' });
             return;
         }
 
@@ -64,7 +66,7 @@ const Statement = () => {
                 wallet_id: manualTrans.wallet_id
             });
 
-            alert('Transação adicionada com sucesso!');
+            setToast({ message: 'Transação adicionada com sucesso!', type: 'success' });
 
             // Reset form
             setManualTrans({
@@ -77,7 +79,7 @@ const Statement = () => {
             });
         } catch (error) {
             console.error('Failed to add transaction:', error);
-            alert(error.response?.data?.error || 'Erro ao adicionar transação');
+            setToast({ message: error.response?.data?.error || 'Erro ao adicionar transação', type: 'error' });
         }
     };
 
@@ -106,7 +108,7 @@ const Statement = () => {
         const fileExtension = file.name.split('.').pop().toLowerCase();
 
         if (!validExtensions.includes(fileExtension)) {
-            alert('Apenas arquivos CSV e OFX são permitidos');
+            setToast({ message: 'Apenas arquivos CSV e OFX são permitidos', type: 'error' });
             return;
         }
 
@@ -122,7 +124,7 @@ const Statement = () => {
 
     const handleImport = async () => {
         if (!selectedFile || !selectedWalletForImport) {
-            alert('Selecione um arquivo e uma carteira');
+            setToast({ message: 'Selecione um arquivo e uma carteira', type: 'error' });
             return;
         }
 
@@ -445,6 +447,13 @@ const Statement = () => {
                     )}
                 </div>
             </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

@@ -1,0 +1,7 @@
+
+> duoo-server@1.0.0 start
+> node server.js
+
+Database synced
+Agendador de rendimentos iniciado (Roda diariamente às 00:00).
+Server running on port 5000

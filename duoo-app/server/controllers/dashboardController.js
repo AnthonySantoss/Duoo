@@ -89,7 +89,10 @@ exports.getDashboardStats = async (req, res) => {
             // Only count current month for spent/income
             if (transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear) {
                 if (t.type === 'expense') {
-                    spent += Math.abs(amt);
+                    // Don't count investments (goal allocations) as spending
+                    if (t.category !== 'Investimento') {
+                        spent += Math.abs(amt);
+                    }
                 } else if (t.type === 'income') {
                     income += amt;
                 }
@@ -107,25 +110,53 @@ exports.getDashboardStats = async (req, res) => {
 
         const cardIds = creditCards.map(c => c.id);
 
+        let invoices = [];
         if (cardIds.length > 0) {
-            const invoices = await CreditCardInvoice.findAll({
+            invoices = await CreditCardInvoice.findAll({
                 where: {
                     credit_card_id: { [Op.in]: cardIds },
                     month: currentMonth + 1, // Month is 1-12, getMonth() returns 0-11
-                    year: currentYear
+                    year: currentYear,
+                    paid: false // Only count unpaid invoices
                 }
             });
 
             creditCard = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
         }
 
+        // Calculate balance variation (vs start of month)
+        const netChange = income - spent;
+        const startBalance = balance - netChange;
+        let balanceVariation = 0;
+        if (startBalance !== 0) {
+            balanceVariation = ((balance - startBalance) / Math.abs(startBalance)) * 100;
+        } else if (balance !== 0) {
+            balanceVariation = 100;
+        }
+
+        // Calculate next invoice due date
+        let nextInvoiceDay = null;
+        if (invoices.length > 0) {
+            const dates = invoices.map(inv => new Date(inv.due_date));
+            dates.sort((a, b) => a - b);
+            if (dates.length > 0) {
+                // Add 1 to correct for timezone/conversion issues if necessary, 
+                // but getDate() should be fine if stored correctly. 
+                // Usually due_date is YYYY-MM-DD.
+                // let's assume UTC or safe conversion
+                nextInvoiceDay = dates[0].getUTCDate();
+            }
+        }
+
         // Return structured data
         const responseData = {
             balance: balance,
+            balanceVariation: balanceVariation,
             spent: spent,
             saved: saved,
             invested: totalSavedInGoals, // Now shows total saved in goals
             creditCard: creditCard,
+            nextInvoiceDay: nextInvoiceDay,
             transactions: transactions.slice(0, 5),
             expensesByCategory: calculateCategoryStats(transactions.filter(t => {
                 const transDate = new Date(t.date);
@@ -145,7 +176,7 @@ function calculateCategoryStats(transactions) {
     let total = 0;
 
     transactions.forEach(t => {
-        if (t.type === 'expense') {
+        if (t.type === 'expense' && t.category !== 'Investimento') {
             const val = Math.abs(parseFloat(t.amount));
             expenses[t.category] = (expenses[t.category] || 0) + val;
             total += val;

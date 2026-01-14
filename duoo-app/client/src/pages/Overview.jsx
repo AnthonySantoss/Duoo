@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
+import Toast from '../components/ui/Toast';
 
 const Overview = () => {
     const { viewMode } = useOutletContext();
@@ -16,6 +17,9 @@ const Overview = () => {
     const [showTipModal, setShowTipModal] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState(null);
     const [allocationAmount, setAllocationAmount] = useState('');
+    const [wallets, setWallets] = useState([]);
+    const [selectedWallet, setSelectedWallet] = useState('');
+    const [toast, setToast] = useState(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -39,7 +43,20 @@ const Overview = () => {
         };
 
         fetchDashboardData();
+        fetchWallets();
     }, [viewMode]);
+
+    const fetchWallets = async () => {
+        try {
+            const res = await api.get('/wallets');
+            setWallets(res.data);
+            if (res.data.length > 0) {
+                setSelectedWallet(res.data[0].id);
+            }
+        } catch (error) {
+            console.error('Failed to fetch wallets:', error);
+        }
+    };
 
     const getCategoryIcon = (category) => {
         switch (category) {
@@ -55,16 +72,17 @@ const Overview = () => {
 
     const handleAllocateToGoal = async () => {
         if (!selectedGoal || !allocationAmount || parseFloat(allocationAmount) <= 0) {
-            alert('Selecione uma meta e informe um valor válido');
+            setToast({ message: 'Selecione uma meta e informe um valor válido', type: 'error' });
             return;
         }
 
         try {
             await api.post(`/goals/${selectedGoal}/progress`, {
-                amount: parseFloat(allocationAmount)
+                amount: parseFloat(allocationAmount),
+                wallet_id: selectedWallet
             });
 
-            alert('Valor destinado com sucesso!');
+            setToast({ message: 'Valor destinado com sucesso!', type: 'success' });
             setShowTipModal(false);
             setAllocationAmount('');
 
@@ -80,7 +98,7 @@ const Overview = () => {
             setGoals(goalsResponse.data);
         } catch (error) {
             console.error('Failed to allocate to goal:', error);
-            alert(error.response?.data?.error || 'Erro ao destinar valor');
+            setToast({ message: error.response?.data?.error || 'Erro ao destinar valor', type: 'error' });
         }
     };
 
@@ -123,7 +141,7 @@ const Overview = () => {
 
     if (!data) return <div>Erro ao carregar dados.</div>;
 
-    const { balance, spent, saved, invested, creditCard, expensesByCategory, transactions } = data;
+    const { balance, balanceVariation, spent, saved, invested, creditCard, nextInvoiceDay, expensesByCategory, transactions } = data;
 
     return (
         <div className="space-y-8">
@@ -132,7 +150,9 @@ const Overview = () => {
                 <Card>
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Wallet size={20} /></div>
-                        <Badge variant="success">+12%</Badge>
+                        <Badge variant={balanceVariation >= 0 ? "success" : "danger"}>
+                            {balanceVariation > 0 ? '+' : ''}{balanceVariation ? balanceVariation.toFixed(1) : '0.0'}%
+                        </Badge>
                     </div>
                     <p className="text-slate-500 text-sm">Saldo Disponível</p>
                     <h3 className="text-2xl font-bold">R$ {parseFloat(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
@@ -149,7 +169,9 @@ const Overview = () => {
                 <Card>
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><CreditCard size={20} /></div>
-                        <Badge variant="warning">Vence dia 10</Badge>
+                        {nextInvoiceDay && (
+                            <Badge variant="warning">Vence dia {nextInvoiceDay}</Badge>
+                        )}
                     </div>
                     <p className="text-slate-500 text-sm">Fatura Cartão</p>
                     <h3 className="text-2xl font-bold">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
@@ -347,6 +369,20 @@ const Overview = () => {
                         />
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Carteira de Origem</label>
+                        <select
+                            value={selectedWallet || ''}
+                            onChange={e => setSelectedWallet(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                            <option value="">Não debitar de nenhuma carteira</option>
+                            {wallets.map(wallet => (
+                                <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <button
                         onClick={handleAllocateToGoal}
                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30"
@@ -355,6 +391,13 @@ const Overview = () => {
                     </button>
                 </div>
             </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

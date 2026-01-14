@@ -5,6 +5,15 @@ const { User } = require('../models');
 exports.register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        // Validate password strength
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                error: 'A senha deve ter no mínimo 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais'
+            });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({ name, email, password_hash: hashedPassword });
 

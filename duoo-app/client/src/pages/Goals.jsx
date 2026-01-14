@@ -6,6 +6,7 @@ import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Toast from '../components/ui/Toast';
 
 const Goals = () => {
     const { viewMode } = useOutletContext();
@@ -17,6 +18,9 @@ const Goals = () => {
     const [editingGoal, setEditingGoal] = useState(null);
     const [selectedGoal, setSelectedGoal] = useState(null);
     const [progressAmount, setProgressAmount] = useState('');
+    const [toast, setToast] = useState(null);
+    const [wallets, setWallets] = useState([]);
+    const [selectedWallet, setSelectedWallet] = useState('');
 
     const [formData, setFormData] = useState({
         title: '',
@@ -30,7 +34,25 @@ const Goals = () => {
 
     useEffect(() => {
         fetchGoals();
+        fetchWallets();
     }, [viewMode]);
+
+    const fetchWallets = async () => {
+        try {
+            const res = await api.get('/wallets');
+            setWallets(res.data);
+            if (res.data.length > 0) {
+                // Default to first wallet if available, or keep empty?
+                // keeping empty to be optional as per previous thought, or maybe default?
+                // Let's keep empty by default so user consciously chooses to create a transaction.
+                // But wait, user said "money doesn't leave balance", so they WANT it to.
+                // So maybe defaulting to the first wallet is better UX.
+                setSelectedWallet(res.data[0].id);
+            }
+        } catch (error) {
+            console.error('Failed to fetch wallets:', error);
+        }
+    };
 
     const fetchGoals = async () => {
         setLoading(true);
@@ -98,7 +120,7 @@ const Goals = () => {
             setFormData({ title: '', target_amount: '', current_amount: '0', is_joint: false, is_yielding: false, cdi_percentage: '100', bank_name: '' });
         } catch (error) {
             console.error('Failed to save goal:', error);
-            alert(error.response?.data?.error || 'Erro ao salvar meta');
+            setToast({ message: error.response?.data?.error || 'Erro ao salvar meta', type: 'error' });
         }
     };
 
@@ -110,13 +132,16 @@ const Goals = () => {
             fetchGoals();
         } catch (error) {
             console.error('Failed to delete goal:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir meta');
+            setToast({ message: error.response?.data?.error || 'Erro ao excluir meta', type: 'error' });
         }
     };
 
     const handleOpenProgressModal = (goal) => {
         setSelectedGoal(goal);
         setProgressAmount('');
+        // Reset wallet selection or keep default? Let's default to first wallet if available
+        if (wallets.length > 0) setSelectedWallet(wallets[0].id);
+        else setSelectedWallet('');
         setIsProgressModalOpen(true);
     };
 
@@ -125,7 +150,8 @@ const Goals = () => {
 
         try {
             await api.post(`/goals/${selectedGoal.id}/progress`, {
-                amount: parseFloat(progressAmount)
+                amount: parseFloat(progressAmount),
+                wallet_id: selectedWallet
             });
 
             setIsProgressModalOpen(false);
@@ -133,7 +159,7 @@ const Goals = () => {
             setProgressAmount('');
         } catch (error) {
             console.error('Failed to add progress:', error);
-            alert(error.response?.data?.error || 'Erro ao adicionar progresso');
+            setToast({ message: error.response?.data?.error || 'Erro ao adicionar progresso', type: 'error' });
         }
     };
 
@@ -361,11 +387,35 @@ const Goals = () => {
                         />
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Carteira de Origem (Opcional)</label>
+                        <select
+                            value={selectedWallet || ''}
+                            onChange={e => setSelectedWallet(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                            <option value="">Não debitar de nenhuma carteira</option>
+                            {wallets.map(wallet => (
+                                <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Se selecionado, o valor será descontado do saldo da carteira como um investimento.
+                        </p>
+                    </div>
+
                     <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30">
                         Adicionar Progresso
                     </button>
                 </form>
             </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { Calculator, ShoppingCart, CheckCircle2, AlertTriangle, RefreshCw, Receipt, History as HistoryIcon } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
+import Toast from '../components/ui/Toast';
 
 const Simulation = () => {
     // Context
@@ -20,6 +21,7 @@ const Simulation = () => {
     const [item, setItem] = useState('');
     const [amount, setAmount] = useState('');
     const [installments, setInstallments] = useState(1);
+    const [toast, setToast] = useState(null);
 
     useEffect(() => {
         fetchSimulationData();
@@ -111,10 +113,10 @@ const Simulation = () => {
             });
             await fetchSimulationData(); // Refresh data to update history
             handleReset();
-            // alert('Simulação registrada com sucesso!'); // Optional feedback
+            setToast({ message: 'Simulação registrada com sucesso!', type: 'success' });
         } catch (error) {
             console.error('Failed to save simulation:', error);
-            alert('Erro ao registrar simulação. Tente novamente.');
+            setToast({ message: 'Erro ao registrar simulação. Tente novamente.', type: 'error' });
         }
     };
 
@@ -358,6 +360,13 @@ const Simulation = () => {
                     </div>
                 </Card>
             </div>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

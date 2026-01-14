@@ -6,6 +6,7 @@ import Modal from '../components/ui/Modal';
 import ProgressBar from '../components/ui/ProgressBar';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Toast from '../components/ui/Toast';
 
 const CreditCards = () => {
     const { viewMode } = useOutletContext();
@@ -13,13 +14,12 @@ const CreditCards = () => {
     const [creditCards, setCreditCards] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isCardModalOpen, setIsCardModalOpen] = useState(false);
-    const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
-    const [selectedCard, setSelectedCard] = useState(null);
-    const [selectedCardPurchases, setSelectedCardPurchases] = useState([]);
     const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     const [invoices, setInvoices] = useState([]);
     const [editingInvoice, setEditingInvoice] = useState(null);
+    const [toast, setToast] = useState(null);
+    const [wallets, setWallets] = useState([]);
 
     const [cardFormData, setCardFormData] = useState({
         name: '',
@@ -30,12 +30,7 @@ const CreditCards = () => {
         current_used_limit: ''
     });
 
-    const [purchaseFormData, setPurchaseFormData] = useState({
-        description: '',
-        total_amount: '',
-        installments: '1',
-        purchase_date: new Date().toISOString().split('T')[0]
-    });
+
 
     const [invoiceFormData, setInvoiceFormData] = useState({
         credit_card_id: '',
@@ -43,12 +38,23 @@ const CreditCards = () => {
         year: new Date().getFullYear(),
         amount: '',
         due_date: new Date().toISOString().split('T')[0],
-        paid: false
+        paid: false,
+        wallet_id: ''
     });
 
     useEffect(() => {
         fetchCreditCards();
+        fetchWallets();
     }, [viewMode]);
+
+    const fetchWallets = async () => {
+        try {
+            const res = await api.get('/wallets');
+            setWallets(res.data);
+        } catch (error) {
+            console.error('Failed to fetch wallets:', error);
+        }
+    };
 
     const fetchCreditCards = async () => {
         setLoading(true);
@@ -64,14 +70,7 @@ const CreditCards = () => {
         }
     };
 
-    const fetchPurchases = async (cardId) => {
-        try {
-            const res = await api.get(`/credit-cards/${cardId}/purchases`);
-            setSelectedCardPurchases(res.data);
-        } catch (error) {
-            console.error('Failed to fetch purchases:', error);
-        }
-    };
+
 
     const fetchInvoices = async () => {
         try {
@@ -115,6 +114,13 @@ const CreditCards = () => {
 
     const handleSaveInvoice = async (e) => {
         e.preventDefault();
+
+        // Validate wallet selection if marking as paid
+        if (invoiceFormData.paid && !invoiceFormData.wallet_id) {
+            setToast({ message: 'Selecione uma carteira para pagar a fatura', type: 'error' });
+            return;
+        }
+
         try {
             await api.post('/invoices', invoiceFormData);
             await fetchInvoices();
@@ -125,11 +131,12 @@ const CreditCards = () => {
                 year: new Date().getFullYear(),
                 amount: '',
                 due_date: new Date().toISOString().split('T')[0],
-                paid: false
+                paid: false,
+                wallet_id: ''
             });
         } catch (error) {
             console.error('Failed to save invoice:', error);
-            alert(error.response?.data?.error || 'Erro ao salvar fatura');
+            setToast({ message: error.response?.data?.error || 'Erro ao salvar fatura', type: 'error' });
         }
     };
 
@@ -140,7 +147,7 @@ const CreditCards = () => {
             await fetchInvoices();
         } catch (error) {
             console.error('Failed to delete invoice:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir fatura');
+            setToast({ message: error.response?.data?.error || 'Erro ao excluir fatura', type: 'error' });
         }
     };
 
@@ -193,7 +200,7 @@ const CreditCards = () => {
             setCardFormData({ name: '', limit: '', due_day: '10', closing_day: '5', is_joint: true, current_used_limit: '' });
         } catch (error) {
             console.error('Failed to save credit card:', error);
-            alert(error.response?.data?.error || 'Erro ao salvar cartão');
+            setToast({ message: error.response?.data?.error || 'Erro ao salvar cartão', type: 'error' });
         }
     };
 
@@ -205,70 +212,7 @@ const CreditCards = () => {
             fetchCreditCards();
         } catch (error) {
             console.error('Failed to delete credit card:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir cartão');
-        }
-    };
-
-    const handleOpenPurchaseModal = async (card) => {
-        setSelectedCard(card);
-        await fetchPurchases(card.id);
-        setPurchaseFormData({
-            description: '',
-            total_amount: '',
-            installments: '1',
-            purchase_date: new Date().toISOString().split('T')[0]
-        });
-        setIsPurchaseModalOpen(true);
-    };
-
-    const handleAddPurchase = async (e) => {
-        e.preventDefault();
-
-        try {
-            await api.post(`/credit-cards/${selectedCard.id}/purchases`, purchaseFormData);
-
-            setPurchaseFormData({
-                description: '',
-                total_amount: '',
-                installments: '1',
-                purchase_date: new Date().toISOString().split('T')[0]
-            });
-
-            await fetchPurchases(selectedCard.id);
-            await fetchCreditCards();
-            alert('Compra adicionada com sucesso!');
-        } catch (error) {
-            console.error('Failed to add purchase:', error);
-            alert(error.response?.data?.error || 'Erro ao adicionar compra');
-        }
-    };
-
-    const handleDeletePurchase = async (purchaseId) => {
-        if (!confirm('Tem certeza que deseja excluir esta compra?')) return;
-
-        try {
-            await api.delete(`/credit-cards/purchases/${purchaseId}`);
-            await fetchPurchases(selectedCard.id);
-            await fetchCreditCards();
-        } catch (error) {
-            console.error('Failed to delete purchase:', error);
-            alert(error.response?.data?.error || 'Erro ao excluir compra');
-        }
-    };
-
-    const handlePayInstallment = async (purchaseId, currentRemaining) => {
-        const newRemaining = Math.max(0, currentRemaining - 1);
-
-        try {
-            await api.put(`/credit-cards/purchases/${purchaseId}`, {
-                remaining_installments: newRemaining
-            });
-            await fetchPurchases(selectedCard.id);
-            await fetchCreditCards();
-            alert('Parcela paga com sucesso!');
-        } catch (error) {
-            console.error('Failed to pay installment:', error);
-            alert(error.response?.data?.error || 'Erro ao pagar parcela');
+            setToast({ message: error.response?.data?.error || 'Erro ao excluir cartão', type: 'error' });
         }
     };
 
@@ -321,7 +265,18 @@ const CreditCards = () => {
                     ) : (
                         creditCards.map(card => {
                             const styles = getProviderStyles(card.name);
-                            const currentDebt = parseFloat(card.current_debt || 0);
+
+                            // Calculate current month invoice from unpaid invoices
+                            const currentMonth = new Date().getMonth() + 1;
+                            const currentYear = new Date().getFullYear();
+                            const currentMonthInvoice = invoices.find(inv =>
+                                inv.credit_card_id === card.id &&
+                                inv.month === currentMonth &&
+                                inv.year === currentYear &&
+                                !inv.paid
+                            );
+
+                            const currentDebt = currentMonthInvoice ? parseFloat(currentMonthInvoice.amount || 0) : 0;
                             const limit = parseFloat(card.limit || 0);
                             const usagePercent = limit > 0 ? Math.min(100, (currentDebt / limit) * 100) : 0;
                             const available = Math.max(0, limit - currentDebt);
@@ -341,7 +296,7 @@ const CreditCards = () => {
                                 <div
                                     key={card.id}
                                     className="group relative bg-white dark:bg-slate-900 rounded-[28px] p-7 shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col justify-between h-[340px] w-[340px] min-w-[340px] snap-start hover:shadow-md transition-all cursor-pointer"
-                                    onClick={() => handleOpenPurchaseModal(card)}
+                                    onClick={() => handleOpenInvoiceModal(card)}
                                 >
                                     {/* Decorative Blob */}
                                     <div className={`absolute -top-6 -right-6 w-32 h-32 rounded-full blur-2xl opacity-10 ${styles.bg}`}></div>
@@ -604,6 +559,26 @@ const CreditCards = () => {
                         </label>
                     </div>
 
+                    {invoiceFormData.paid && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Carteira para Pagamento</label>
+                            <select
+                                value={invoiceFormData.wallet_id}
+                                onChange={e => setInvoiceFormData({ ...invoiceFormData, wallet_id: e.target.value })}
+                                required={invoiceFormData.paid}
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                <option value="">Selecione uma carteira</option>
+                                {wallets.map(wallet => (
+                                    <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-slate-500 mt-1">
+                                O valor da fatura será descontado do saldo desta carteira.
+                            </p>
+                        </div>
+                    )}
+
                     <button
                         type="submit"
                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30"
@@ -708,117 +683,13 @@ const CreditCards = () => {
                     </button>
                 </form>
             </Modal>
-
-            {/* Purchases Modal */}
-            <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title={`Compras - ${selectedCard?.name}`}>
-                <div className="space-y-6">
-                    {/* Add Purchase Form */}
-                    <form onSubmit={handleAddPurchase} className="space-y-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-                        <h4 className="font-bold flex items-center gap-2">
-                            <PlusCircle size={16} />
-                            Nova Compra
-                        </h4>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="Ex: Notebook, Celular..."
-                                value={purchaseFormData.description}
-                                onChange={e => setPurchaseFormData({ ...purchaseFormData, description: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Valor Total (R$)</label>
-                                <input
-                                    type="number"
-                                    required
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={purchaseFormData.total_amount}
-                                    onChange={e => setPurchaseFormData({ ...purchaseFormData, total_amount: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Parcelas</label>
-                                <select
-                                    value={purchaseFormData.installments}
-                                    onChange={e => setPurchaseFormData({ ...purchaseFormData, installments: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
-                                        <option key={num} value={num}>{num}x</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data da Compra</label>
-                            <input
-                                type="date"
-                                value={purchaseFormData.purchase_date}
-                                onChange={e => setPurchaseFormData({ ...purchaseFormData, purchase_date: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                        </div>
-
-                        <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">
-                            Adicionar Compra
-                        </button>
-                    </form>
-
-                    {/* Purchases List */}
-                    <div>
-                        <h4 className="font-bold mb-3">Compras Ativas</h4>
-                        {selectedCardPurchases.length === 0 ? (
-                            <p className="text-center text-slate-500 py-8">Nenhuma compra cadastrada</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {selectedCardPurchases.filter(p => p.remaining_installments > 0).map(purchase => (
-                                    <div key={purchase.id} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex-1">
-                                                <h5 className="font-bold">{purchase.description}</h5>
-                                                <p className="text-xs text-slate-500">
-                                                    {purchase.remaining_installments}x de R$ {parseFloat(purchase.installment_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => handleDeletePurchase(purchase.id)}
-                                                className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/20 text-rose-600 rounded transition-colors"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600 dark:text-slate-400">
-                                                Faltam {purchase.remaining_installments} de {purchase.installments} parcelas
-                                            </span>
-                                            <button
-                                                onClick={() => handlePayInstallment(purchase.id, purchase.remaining_installments)}
-                                                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg transition-colors"
-                                            >
-                                                Pagar 1 parcela
-                                            </button>
-                                        </div>
-                                        <ProgressBar
-                                            progress={((purchase.installments - purchase.remaining_installments) / purchase.installments) * 100}
-                                            colorClass="bg-emerald-500"
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </Modal>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };

@@ -59,7 +59,7 @@ exports.getStatistics = async (req, res) => {
                 if (t.type === 'income') {
                     monthlyFlow[monthKey].income += parseFloat(t.amount);
                 } else if (t.type === 'expense') {
-                    monthlyFlow[monthKey].expense += parseFloat(t.amount);
+                    monthlyFlow[monthKey].expense += Math.abs(parseFloat(t.amount));
                 }
             }
         });
@@ -84,7 +84,7 @@ exports.getStatistics = async (req, res) => {
         const dayCounts = {}; // { 'Monday': { category: count } } or simplified { 'Monday': count } of expenses
 
         expenseTransactions.forEach(t => {
-            const amount = parseFloat(t.amount);
+            const amount = Math.abs(parseFloat(t.amount));
             const cat = t.category || 'Outros';
 
             // Category Stats
@@ -129,9 +129,10 @@ exports.getStatistics = async (req, res) => {
         expenseTransactions.forEach(t => {
             const userId = t.user_id;
             const userName = userMap[userId] || 'Desconhecido';
+            const amount = Math.abs(parseFloat(t.amount));
             if (!userStats[userName]) userStats[userName] = 0;
-            userStats[userName] += parseFloat(t.amount);
-            contributionTotal += parseFloat(t.amount);
+            userStats[userName] += amount;
+            contributionTotal += amount;
         });
 
         const userContribution = Object.entries(userStats).map(([name, amount]) => ({

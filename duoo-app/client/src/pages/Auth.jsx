@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, LogIn, Chrome, Github } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, LogIn, Chrome, Github, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,6 +10,23 @@ const Auth = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', password: '' });
     const [error, setError] = useState('');
+    const [passwordFocused, setPasswordFocused] = useState(false);
+
+    // Password validation rules
+    const passwordValidation = useMemo(() => {
+        const password = formData.password;
+        return {
+            minLength: password.length >= 8,
+            hasUpperCase: /[A-Z]/.test(password),
+            hasLowerCase: /[a-z]/.test(password),
+            hasNumber: /[0-9]/.test(password),
+            hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+        };
+    }, [formData.password]);
+
+    const isPasswordValid = useMemo(() => {
+        return Object.values(passwordValidation).every(v => v === true);
+    }, [passwordValidation]);
 
     const toggleMode = () => {
         setIsRegistering(!isRegistering);
@@ -20,6 +37,13 @@ const Auth = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        // Validate password strength on registration
+        if (isRegistering && !isPasswordValid) {
+            setError('A senha não atende aos requisitos de segurança');
+            return;
+        }
+
         try {
             if (isRegistering) {
                 await register(formData.name, formData.email, formData.password);
@@ -145,11 +169,49 @@ const Auth = () => {
                                         className="w-full pl-10 pr-10 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-sm"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        onFocus={() => setPasswordFocused(true)}
+                                        onBlur={() => setPasswordFocused(false)}
                                     />
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </button>
                                 </div>
+
+                                {/* Password Strength Indicator - Only show during registration */}
+                                {isRegistering && (passwordFocused || formData.password.length > 0) && (
+                                    <div className="mt-3 p-4 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Requisitos de Segurança:</p>
+                                        <div className="space-y-1.5">
+                                            <PasswordRequirement
+                                                met={passwordValidation.minLength}
+                                                text="Mínimo de 8 caracteres"
+                                            />
+                                            <PasswordRequirement
+                                                met={passwordValidation.hasUpperCase}
+                                                text="Pelo menos uma letra maiúscula (A-Z)"
+                                            />
+                                            <PasswordRequirement
+                                                met={passwordValidation.hasLowerCase}
+                                                text="Pelo menos uma letra minúscula (a-z)"
+                                            />
+                                            <PasswordRequirement
+                                                met={passwordValidation.hasNumber}
+                                                text="Pelo menos um número (0-9)"
+                                            />
+                                            <PasswordRequirement
+                                                met={passwordValidation.hasSpecialChar}
+                                                text="Pelo menos um caractere especial (!@#$%...)"
+                                            />
+                                        </div>
+                                        {isPasswordValid && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                                <p className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                                                    <Check size={14} /> Senha forte! Pronta para uso.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 mt-6">
@@ -162,5 +224,15 @@ const Auth = () => {
         </div>
     );
 };
+
+// Helper component for password requirements
+const PasswordRequirement = ({ met, text }) => (
+    <div className={`flex items-center gap-2 text-xs transition-colors ${met ? 'text-emerald-600' : 'text-slate-500'}`}>
+        <div className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${met ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
+            {met ? <Check size={10} className="text-emerald-600" /> : <X size={10} className="text-slate-400" />}
+        </div>
+        <span className={met ? 'font-medium' : ''}>{text}</span>
+    </div>
+);
 
 export default Auth;
