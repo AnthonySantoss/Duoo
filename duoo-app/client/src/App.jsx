@@ -6,6 +6,7 @@ import Overview from './pages/Overview';
 import Transactions from './pages/Transactions';
 import Goals from './pages/Goals';
 import Wallets from './pages/Wallets';
+import Bank from './pages/Bank';
 
 import LinkAccounts from './pages/LinkAccounts';
 import Settings from './pages/Settings';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<Overview />} />
             <Route path="transactions" element={<Transactions />} />
+            <Route path="bank" element={<Bank />} />
             <Route path="goals" element={<Goals />} />
             <Route path="wallets" element={<Wallets />} />
             <Route path="simulation" element={<Simulation />} />

@@ -30,5 +30,6 @@ app.use('/api/import', importRoutes);
 app.use('/api/credit-cards', creditCardRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/loans', require('./routes/loanRoutes'));
 
 module.exports = app;

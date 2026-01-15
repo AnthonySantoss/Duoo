@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardLayout = () => {
@@ -18,6 +18,7 @@ const DashboardLayout = () => {
     const navItems = [
         { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
         { path: '/dashboard/transactions', icon: <Wallet size={20} />, label: 'Transações' },
+        { path: '/dashboard/bank', icon: <Building2 size={20} />, label: 'Banco' },
         { path: '/dashboard/goals', icon: <Target size={20} />, label: 'Objetivos' },
         { path: '/dashboard/simulation', icon: <Calculator size={20} />, label: 'Simulador' },
         { path: '/dashboard/forecast', icon: <LineChart size={20} />, label: 'Estatísticas' },
