@@ -12,6 +12,7 @@ const importRoutes = require('./routes/importRoutes');
 const creditCardRoutes = require('./routes/creditCardRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
+const pluggyRoutes = require('./routes/pluggyRoutes');
 
 const app = express();
 
@@ -31,5 +32,6 @@ app.use('/api/credit-cards', creditCardRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/loans', require('./routes/loanRoutes'));
+app.use('/api/pluggy', pluggyRoutes);
 
 module.exports = app;

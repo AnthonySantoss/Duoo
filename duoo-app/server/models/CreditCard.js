@@ -30,6 +30,22 @@ const CreditCard = sequelize.define('CreditCard', {
     is_joint: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
+    },
+    pluggy_account_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    pluggy_item_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    bank_name: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    last_sync: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 });
 

@@ -42,6 +42,15 @@ const Transaction = sequelize.define('Transaction', {
             model: User,
             key: 'id'
         }
+    },
+    pluggy_transaction_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    pluggy_account_id: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 });
 

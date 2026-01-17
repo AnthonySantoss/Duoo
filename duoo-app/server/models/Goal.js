@@ -39,6 +39,26 @@ const Goal = sequelize.define('Goal', {
     bank_name: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    pluggy_investment_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    pluggy_item_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    deadline: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    category: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 });
 

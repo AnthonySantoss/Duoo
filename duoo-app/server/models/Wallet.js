@@ -31,6 +31,22 @@ const Wallet = sequelize.define('Wallet', {
             model: User,
             key: 'id'
         }
+    },
+    pluggy_item_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    pluggy_account_id: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    bank_name: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    last_sync: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 });
 

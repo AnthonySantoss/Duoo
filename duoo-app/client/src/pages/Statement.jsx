@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { PlusCircle, UploadCloud, FileText, FileSpreadsheet, Download, CheckCircle } from 'lucide-react';
+import { UploadCloud, FileText, FileSpreadsheet, Download, Building2, RefreshCw } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
+import PluggyConnect from '../components/ui/PluggyConnect';
+import ConnectedAccounts from '../components/ui/ConnectedAccounts';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
 
@@ -18,15 +20,6 @@ const Statement = () => {
     const fileInputRef = useRef(null);
     const [toast, setToast] = useState(null);
 
-    const [manualTrans, setManualTrans] = useState({
-        title: '',
-        amount: '',
-        type: 'expense',
-        category: 'Alimentação',
-        date: new Date().toISOString().split('T')[0],
-        wallet_id: ''
-    });
-
     useEffect(() => {
         fetchWallets();
     }, []);
@@ -36,7 +29,6 @@ const Statement = () => {
             const res = await api.get('/wallets');
             setWallets(res.data);
             if (res.data.length > 0) {
-                setManualTrans(prev => ({ ...prev, wallet_id: res.data[0].id }));
                 setSelectedWalletForImport(res.data[0].id);
             }
         } catch (error) {
@@ -44,43 +36,16 @@ const Statement = () => {
         }
     };
 
-    const handleAddTransaction = async (e) => {
-        e.preventDefault();
+    const handlePluggySuccess = (itemData) => {
+        setToast({ message: 'Banco conectado! Sincronizando dados...', type: 'success' });
+        // Refresh wallets after sync
+        setTimeout(() => {
+            fetchWallets();
+        }, 2000);
+    };
 
-        if (!manualTrans.title || !manualTrans.amount || !manualTrans.wallet_id) {
-            setToast({ message: 'Preencha todos os campos obrigatórios', type: 'error' });
-            return;
-        }
-
-        try {
-            const amount = manualTrans.type === 'expense'
-                ? -Math.abs(parseFloat(manualTrans.amount))
-                : Math.abs(parseFloat(manualTrans.amount));
-
-            await api.post('/transactions', {
-                title: manualTrans.title,
-                amount: amount,
-                category: manualTrans.category,
-                date: manualTrans.date,
-                type: manualTrans.type,
-                wallet_id: manualTrans.wallet_id
-            });
-
-            setToast({ message: 'Transação adicionada com sucesso!', type: 'success' });
-
-            // Reset form
-            setManualTrans({
-                title: '',
-                amount: '',
-                type: 'expense',
-                category: 'Alimentação',
-                date: new Date().toISOString().split('T')[0],
-                wallet_id: wallets.length > 0 ? wallets[0].id : ''
-            });
-        } catch (error) {
-            console.error('Failed to add transaction:', error);
-            setToast({ message: error.response?.data?.error || 'Erro ao adicionar transação', type: 'error' });
-        }
+    const handlePluggyError = (error) => {
+        setToast({ message: 'Erro ao conectar banco. Tente novamente.', type: 'error' });
     };
 
     const handleDrag = (e) => {
@@ -178,110 +143,72 @@ const Statement = () => {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Manual Entry Form */}
+            {/* Pluggy Bank Connection */}
             <div className="space-y-6">
                 <div className="space-y-2">
-                    <h3 className="text-lg font-bold flex items-center gap-2"><PlusCircle className="text-emerald-500" /> Lançamento Manual</h3>
-                    <p className="text-slate-500 text-sm">Adicione transações que não foram sincronizadas automaticamente.</p>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Building2 className="text-emerald-500" />
+                        Conectar Banco via Open Finance
+                    </h3>
+                    <p className="text-slate-500 text-sm">
+                        Conecte sua conta bancária de forma segura e sincronize suas transações automaticamente.
+                    </p>
                 </div>
 
                 <Card className="space-y-5">
-                    <form onSubmit={handleAddTransaction} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Descrição</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="Ex: Pagamento para encanador"
-                                value={manualTrans.title}
-                                onChange={(e) => setManualTrans({ ...manualTrans, title: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                        </div>
+                    <PluggyConnect
+                        onSuccess={handlePluggySuccess}
+                        onError={handlePluggyError}
+                    />
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Valor (R$)</label>
-                                <input
-                                    type="number"
-                                    required
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={manualTrans.amount}
-                                    onChange={(e) => setManualTrans({ ...manualTrans, amount: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Data</label>
-                                <input
-                                    type="date"
-                                    required
-                                    value={manualTrans.date}
-                                    onChange={(e) => setManualTrans({ ...manualTrans, date: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-500"
-                                />
-                            </div>
-                        </div>
+                    <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
+                        <h4 className="font-semibold text-sm text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                            <RefreshCw size={16} />
+                            Como funciona?
+                        </h4>
+                        <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
+                            <li className="flex gap-2">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">1.</span>
+                                <span>Clique no botão para abrir a conexão segura</span>
+                            </li>
+                            <li className="flex gap-2">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">2.</span>
+                                <span>Escolha seu banco e faça login normalmente</span>
+                            </li>
+                            <li className="flex gap-2">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">3.</span>
+                                <span>Autorize o acesso aos seus dados financeiros</span>
+                            </li>
+                            <li className="flex gap-2">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">4.</span>
+                                <span>Suas transações serão sincronizadas automaticamente!</span>
+                            </li>
+                        </ol>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Carteira</label>
-                            <select
-                                required
-                                value={manualTrans.wallet_id}
-                                onChange={(e) => setManualTrans({ ...manualTrans, wallet_id: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                <option value="">Selecione uma carteira</option>
-                                {wallets.map(wallet => (
-                                    <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl">
+                        <p className="text-xs text-blue-800 dark:text-blue-300">
+                            <strong>🔒 Seguro e Confiável:</strong> A conexão é feita diretamente com seu banco através do Open Finance do Banco Central. Seus dados são criptografados e protegidos.
+                        </p>
+                    </div>
+                </Card>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Categoria</label>
-                                <select
-                                    value={manualTrans.category}
-                                    onChange={(e) => setManualTrans({ ...manualTrans, category: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option>Alimentação</option>
-                                    <option>Lazer</option>
-                                    <option>Moradia</option>
-                                    <option>Contas</option>
-                                    <option>Saúde</option>
-                                    <option>Transporte</option>
-                                    <option>Educação</option>
-                                    <option>Outros</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tipo</label>
-                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                                    <button
-                                        type="button"
-                                        onClick={() => setManualTrans({ ...manualTrans, type: 'expense' })}
-                                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${manualTrans.type === 'expense' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        Despesa
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setManualTrans({ ...manualTrans, type: 'income' })}
-                                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${manualTrans.type === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        Receita
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                {/* Connected Accounts */}
+                <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Building2 className="text-blue-500" />
+                        Contas Conectadas
+                    </h3>
+                    <p className="text-slate-500 text-sm">
+                        Gerencie suas conexões bancárias ativas.
+                    </p>
+                </div>
 
-                        <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30">
-                            Adicionar Transação
-                        </button>
-                    </form>
+                <Card>
+                    <ConnectedAccounts onDisconnect={() => {
+                        setToast({ message: 'Banco desconectado com sucesso!', type: 'success' });
+                        fetchWallets();
+                    }} />
                 </Card>
             </div>
 
