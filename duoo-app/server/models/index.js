@@ -8,6 +8,11 @@ const CreditCardPurchase = require('./CreditCardPurchase');
 const Simulation = require('./Simulation');
 const CreditCardInvoice = require('./CreditCardInvoice');
 const Loan = require('./Loan');
+const TransactionCorrection = require('./TransactionCorrection');
+const Achievement = require('./Achievement');
+const UserAchievement = require('./UserAchievement');
+const BudgetAlert = require('./BudgetAlert');
+const AlertNotification = require('./AlertNotification');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -40,6 +45,24 @@ Loan.belongsTo(User, { foreignKey: 'user_id' });
 Goal.hasMany(Loan, { foreignKey: 'goal_id' });
 Loan.belongsTo(Goal, { foreignKey: 'goal_id' });
 
+User.hasMany(TransactionCorrection, { foreignKey: 'user_id' });
+TransactionCorrection.belongsTo(User, { foreignKey: 'user_id' });
+
+User.hasMany(UserAchievement, { foreignKey: 'user_id' });
+UserAchievement.belongsTo(User, { foreignKey: 'user_id' });
+
+Achievement.hasMany(UserAchievement, { foreignKey: 'achievement_id' });
+UserAchievement.belongsTo(Achievement, { foreignKey: 'achievement_id' });
+
+User.hasMany(BudgetAlert, { foreignKey: 'user_id' });
+BudgetAlert.belongsTo(User, { foreignKey: 'user_id' });
+
+User.hasMany(AlertNotification, { foreignKey: 'user_id' });
+AlertNotification.belongsTo(User, { foreignKey: 'user_id' });
+
+BudgetAlert.hasMany(AlertNotification, { foreignKey: 'alert_id' });
+AlertNotification.belongsTo(BudgetAlert, { foreignKey: 'alert_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -50,5 +73,10 @@ module.exports = {
     CreditCardPurchase,
     Simulation,
     CreditCardInvoice,
-    Loan
+    Loan,
+    TransactionCorrection,
+    Achievement,
+    UserAchievement,
+    BudgetAlert,
+    AlertNotification
 };

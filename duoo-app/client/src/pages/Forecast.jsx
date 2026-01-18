@@ -129,7 +129,7 @@ const Forecast = () => {
                                         {cat.category}
                                     </span>
                                     <div className="text-right">
-                                        <div className="text-slate-900 dark:text-white">R$ {parseFloat(cat.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                        <div className="text-slate-900 dark:text-white">R$ {parseFloat(cat.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                     </div>
                                 </div>
                                 <ProgressBar
@@ -198,7 +198,7 @@ const Forecast = () => {
                                         </div>
                                     </div>
                                     <span className={`font-bold text-sm ${index === 0 ? 'text-blue-600' : 'text-purple-600'}`}>
-                                        R$ {parseFloat(user.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {parseFloat(user.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
                             ))}

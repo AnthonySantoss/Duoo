@@ -50,6 +50,11 @@ const Loan = sequelize.define('Loan', {
     date: {
         type: DataTypes.DATEONLY,
         defaultValue: DataTypes.NOW
+    },
+    linked_transaction_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'ID da transação bancária vinculada (saque/transferência de origem)'
     }
 });
 

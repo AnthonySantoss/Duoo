@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, Filter, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, Wallet, Trash2, Edit } from 'lucide-react';
+import { Search, Filter, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, Wallet, Trash2, Edit, X, Calendar, DollarSign, Tag } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
 
@@ -10,11 +11,32 @@ const Transactions = () => {
     const { viewMode } = useOutletContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
     const [transactions, setTransactions] = useState([]);
+    const [allTransactions, setAllTransactions] = useState([]); // Para filtros locais
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [toast, setToast] = useState(null);
+
+    // Filtros avançados
+    const [filters, setFilters] = useState({
+        year: 'all',
+        category: 'all',
+        type: 'all',
+        minAmount: '',
+        maxAmount: '',
+        startDate: '',
+        endDate: ''
+    });
+
+    // Correção de categoria
+    const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+    const [transactionToCorrect, setTransactionToCorrect] = useState(null);
+
+    // Confirmação de exclusão
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -35,8 +57,9 @@ const Transactions = () => {
         setLoading(true);
         try {
             const res = await api.get('/transactions', {
-                params: { viewMode, search: searchTerm }
+                params: { viewMode }
             });
+            setAllTransactions(res.data);
             setTransactions(res.data);
         } catch (error) {
             console.error('Failed to fetch transactions:', error);
@@ -57,13 +80,118 @@ const Transactions = () => {
         }
     };
 
+    // Busca em tempo real + Filtros avançados
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            fetchTransactions();
+            applyFilters();
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm, viewMode]);
+    }, [searchTerm, filters, allTransactions]);
+
+    const applyFilters = () => {
+        let filtered = [...allTransactions];
+
+        // Filtro de busca por texto
+        if (searchTerm) {
+            const search = searchTerm.toLowerCase();
+            filtered = filtered.filter(t =>
+                t.title.toLowerCase().includes(search) ||
+                t.category.toLowerCase().includes(search) ||
+                t.Wallet?.name.toLowerCase().includes(search)
+            );
+        }
+
+        // Filtro por ano
+        if (filters.year !== 'all') {
+            filtered = filtered.filter(t => {
+                const year = new Date(t.date).getFullYear();
+                return year.toString() === filters.year;
+            });
+        }
+
+        // Filtro por categoria
+        if (filters.category !== 'all') {
+            filtered = filtered.filter(t => t.category === filters.category);
+        }
+
+        // Filtro por tipo
+        if (filters.type !== 'all') {
+            filtered = filtered.filter(t => {
+                const isIncome = parseFloat(t.amount) > 0;
+                return filters.type === 'income' ? isIncome : !isIncome;
+            });
+        }
+
+        // Filtro por valor mínimo
+        if (filters.minAmount) {
+            filtered = filtered.filter(t =>
+                Math.abs(parseFloat(t.amount)) >= parseFloat(filters.minAmount)
+            );
+        }
+
+        // Filtro por valor máximo
+        if (filters.maxAmount) {
+            filtered = filtered.filter(t =>
+                Math.abs(parseFloat(t.amount)) <= parseFloat(filters.maxAmount)
+            );
+        }
+
+        // Filtro por data inicial
+        if (filters.startDate) {
+            filtered = filtered.filter(t =>
+                new Date(t.date) >= new Date(filters.startDate)
+            );
+        }
+
+        // Filtro por data final
+        if (filters.endDate) {
+            filtered = filtered.filter(t =>
+                new Date(t.date) <= new Date(filters.endDate)
+            );
+        }
+
+        setTransactions(filtered);
+    };
+
+    const clearFilters = () => {
+        setFilters({
+            year: 'all',
+            category: 'all',
+            type: 'all',
+            minAmount: '',
+            maxAmount: '',
+            startDate: '',
+            endDate: ''
+        });
+        setSearchTerm('');
+    };
+
+    // Gerar lista de anos disponíveis
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        allTransactions.forEach(t => {
+            years.add(new Date(t.date).getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    }, [allTransactions]);
+
+    // Categorias disponíveis
+    const categories = [
+        'Alimentação', 'Lazer', 'Moradia', 'Contas', 'Saúde',
+        'Transporte', 'Educação', 'Salário', 'Freelance',
+        'Investimentos', 'Presente', 'Venda', 'Reembolso', 'Outros'
+    ];
+
+    const hasActiveFilters =
+        filters.year !== 'all' ||
+        filters.category !== 'all' ||
+        filters.type !== 'all' ||
+        filters.minAmount ||
+        filters.maxAmount ||
+        filters.startDate ||
+        filters.endDate ||
+        searchTerm;
 
     const getCategoryIcon = (category) => {
         switch (category) {
@@ -145,15 +273,50 @@ const Transactions = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
+    const handleDelete = (id) => {
+        setTransactionToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!transactionToDelete) return;
 
         try {
-            await api.delete(`/transactions/${id}`);
+            await api.delete(`/transactions/${transactionToDelete}`);
             fetchTransactions();
+            setToast({ message: 'Transação excluída com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to delete transaction:', error);
             setToast({ message: error.response?.data?.error || 'Erro ao excluir transação', type: 'error' });
+        } finally {
+            setTransactionToDelete(null);
+        }
+    };
+
+    const handleOpenCategoryModal = (transaction) => {
+        setTransactionToCorrect(transaction);
+        setCategoryModalOpen(true);
+    };
+
+    const handleCorrectCategory = async (newCategory) => {
+        if (!transactionToCorrect) return;
+
+        try {
+            await api.put(`/category/transactions/${transactionToCorrect.id}/correct-category`, {
+                category: newCategory
+            });
+
+            setToast({
+                message: `Categoria corrigida para "${newCategory}"! O sistema aprenderá com esta correção.`,
+                type: 'success'
+            });
+
+            setCategoryModalOpen(false);
+            setTransactionToCorrect(null);
+            fetchTransactions();
+        } catch (error) {
+            console.error('Failed to correct category:', error);
+            setToast({ message: error.response?.data?.error || 'Erro ao corrigir categoria', type: 'error' });
         }
     };
 
@@ -167,25 +330,193 @@ const Transactions = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div className="relative w-full md:w-96 group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Buscar transações..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
-                    />
+            {/* Barra de busca e ações */}
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+                    <div className="relative w-full md:w-96 group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                        <input
+                            type="text"
+                            placeholder="Buscar transações..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                        />
+                    </div>
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-colors shadow-sm relative ${showFilters
+                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                }`}
+                        >
+                            <Filter size={18} />
+                            Filtros
+                            {hasActiveFilters && (
+                                <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                                    {[
+                                        filters.year !== 'all',
+                                        filters.category !== 'all',
+                                        filters.type !== 'all',
+                                        filters.minAmount,
+                                        filters.maxAmount,
+                                        filters.startDate,
+                                        filters.endDate,
+                                        searchTerm
+                                    ].filter(Boolean).length}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/30"
+                        >
+                            <PlusCircle size={18} /> Nova
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/30"
-                    >
-                        <PlusCircle size={18} /> Nova
-                    </button>
-                </div>
+
+                {/* Painel de Filtros */}
+                {showFilters && (
+                    <Card className="p-6 space-y-4 bg-slate-50 dark:bg-slate-800/50 border-2 border-blue-200 dark:border-blue-900/30">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Filter size={18} className="text-blue-500" />
+                                Filtros Avançados
+                            </h3>
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={clearFilters}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                >
+                                    <X size={14} />
+                                    Limpar Filtros
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Filtro de Ano */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                    <Calendar size={14} />
+                                    Período (Ano)
+                                </label>
+                                <select
+                                    value={filters.year}
+                                    onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                >
+                                    <option value="all">Todos os anos</option>
+                                    {availableYears.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Filtro de Categoria */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                    <Tag size={14} />
+                                    Categoria
+                                </label>
+                                <select
+                                    value={filters.category}
+                                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                >
+                                    <option value="all">Todas as categorias</option>
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Filtro de Tipo */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                    <DollarSign size={14} />
+                                    Tipo
+                                </label>
+                                <select
+                                    value={filters.type}
+                                    onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                >
+                                    <option value="all">Todos os tipos</option>
+                                    <option value="income">Receitas</option>
+                                    <option value="expense">Despesas</option>
+                                </select>
+                            </div>
+
+                            {/* Valor Mínimo */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Valor Mínimo (R$)
+                                </label>
+                                <input
+                                    type="number"
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    value={filters.minAmount}
+                                    onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+
+                            {/* Valor Máximo */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Valor Máximo (R$)
+                                </label>
+                                <input
+                                    type="number"
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    value={filters.maxAmount}
+                                    onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+
+                            {/* Data Inicial */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Data Inicial
+                                </label>
+                                <input
+                                    type="date"
+                                    value={filters.startDate}
+                                    onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+
+                            {/* Data Final */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Data Final
+                                </label>
+                                <input
+                                    type="date"
+                                    value={filters.endDate}
+                                    onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Resumo dos filtros ativos */}
+                        {hasActiveFilters && (
+                            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    <strong>{transactions.length}</strong> transação(ões) encontrada(s) com os filtros aplicados
+                                </p>
+                            </div>
+                        )}
+                    </Card>
+                )}
             </div>
 
             <div className="space-y-4">
@@ -217,9 +548,16 @@ const Transactions = () => {
                             </div>
                             <div className="flex items-center gap-4">
                                 <span className={`block font-bold text-lg ${parseFloat(item.amount) > 0 ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
-                                    {parseFloat(item.amount) > 0 ? '+' : ''} R$ {Math.abs(parseFloat(item.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    {parseFloat(item.amount) > 0 ? '+' : ''} R$ {Math.abs(parseFloat(item.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleOpenCategoryModal(item)}
+                                        className="p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 rounded-lg transition-colors"
+                                        title="Corrigir Categoria"
+                                    >
+                                        <Tag size={18} />
+                                    </button>
                                     <button
                                         onClick={() => handleOpenModal(item)}
                                         className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 rounded-lg transition-colors"
@@ -351,6 +689,64 @@ const Transactions = () => {
                     </button>
                 </form>
             </Modal>
+
+            {/* Modal de Correção de Categoria */}
+            <Modal
+                isOpen={categoryModalOpen}
+                onClose={() => setCategoryModalOpen(false)}
+                title="Corrigir Categoria"
+            >
+                {transactionToCorrect && (
+                    <div className="space-y-4">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <p className="text-sm text-slate-500 mb-1">Transação:</p>
+                            <h4 className="font-bold text-slate-900 dark:text-white">{transactionToCorrect.title}</h4>
+                            <p className="text-sm text-slate-500 mt-2">
+                                Categoria atual: <span className="font-semibold text-slate-700 dark:text-slate-300">{transactionToCorrect.category}</span>
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                                Selecione a categoria correta:
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => handleCorrectCategory(cat)}
+                                        className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${cat === transactionToCorrect.category
+                                            ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
+                                            : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-900/30'
+                                            }`}
+                                        disabled={cat === transactionToCorrect.category}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl">
+                            <p className="text-xs text-blue-800 dark:text-blue-300">
+                                <strong>💡 Dica:</strong> Ao corrigir a categoria, o sistema aprenderá e aplicará automaticamente esta correção em transações futuras similares!
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            <ConfirmModal
+                isOpen={deleteConfirmOpen}
+                onClose={() => setDeleteConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="Excluir Transação"
+                message="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                type="danger"
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
+
             {toast && (
                 <Toast
                     message={toast.message}

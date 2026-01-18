@@ -1,5 +1,6 @@
 const { Transaction, Wallet, User } = require('../models');
 const { Op } = require('sequelize');
+const budgetAlertService = require('../services/budgetAlertService');
 
 exports.getTransactions = async (req, res) => {
     try {
@@ -82,6 +83,9 @@ exports.createTransaction = async (req, res) => {
         const amountValue = parseFloat(amount);
         wallet.balance = parseFloat(wallet.balance) + amountValue;
         await wallet.save();
+
+        // Check for budget alerts
+        await budgetAlertService.checkAlerts(transaction);
 
         res.status(201).json(transaction);
     } catch (error) {

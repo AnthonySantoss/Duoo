@@ -4,6 +4,7 @@ import { PlusCircle, Edit, Trash2, TrendingUp, Users } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/ui/Toast';
@@ -21,6 +22,8 @@ const Goals = () => {
     const [toast, setToast] = useState(null);
     const [wallets, setWallets] = useState([]);
     const [selectedWallet, setSelectedWallet] = useState('');
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [goalToDelete, setGoalToDelete] = useState(null);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -124,15 +127,22 @@ const Goals = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Tem certeza que deseja excluir esta meta?')) return;
+    const handleDelete = (id) => {
+        setGoalToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
 
+    const confirmDelete = async () => {
+        if (!goalToDelete) return;
         try {
-            await api.delete(`/goals/${id}`);
+            await api.delete(`/goals/${goalToDelete}`);
             fetchGoals();
+            setToast({ message: 'Meta excluída com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to delete goal:', error);
             setToast({ message: error.response?.data?.error || 'Erro ao excluir meta', type: 'error' });
+        } finally {
+            setGoalToDelete(null);
         }
     };
 
@@ -247,8 +257,8 @@ const Goals = () => {
                                     colorClass={goal.is_joint ? "bg-emerald-500" : progress >= 100 ? "bg-emerald-500" : "bg-blue-500"}
                                 />
                                 <div className="flex justify-between text-xs mt-3 text-slate-500">
-                                    <span>R$ {parseFloat(goal.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                    <span>Meta: R$ {parseFloat(goal.target_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    <span>R$ {parseFloat(goal.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span>Meta: R$ {parseFloat(goal.target_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </Card>
                         );
@@ -370,7 +380,7 @@ const Goals = () => {
                             Meta: {selectedGoal?.title}
                         </label>
                         <p className="text-xs text-slate-500 mb-3">
-                            Progresso atual: R$ {parseFloat(selectedGoal?.current_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {parseFloat(selectedGoal?.target_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            Progresso atual: R$ {parseFloat(selectedGoal?.current_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de R$ {parseFloat(selectedGoal?.target_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                     </div>
 
@@ -409,6 +419,18 @@ const Goals = () => {
                     </button>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={deleteConfirmOpen}
+                onClose={() => setDeleteConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="Excluir Meta"
+                message="Tem certeza que deseja excluir esta meta? Esta ação não pode ser desfeita."
+                type="danger"
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
+
             {toast && (
                 <Toast
                     message={toast.message}

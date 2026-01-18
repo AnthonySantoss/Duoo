@@ -23,11 +23,18 @@ const upload = multer({
 const parseCSV = (buffer) => {
     return new Promise((resolve, reject) => {
         const results = [];
-        const stream = Readable.from(buffer.toString());
+        let content = buffer.toString();
+        // Remove BOM if present
+        if (content.charCodeAt(0) === 0xFEFF) {
+            content = content.slice(1);
+        }
+
+        const stream = Readable.from(content);
 
         stream
             .pipe(csv({
-                separator: [',', ';'], // Support both separators
+                separator: separator,
+                mapHeaders: ({ header }) => header.trim(),
                 skipLines: 0
             }))
             .on('data', (data) => results.push(data))
@@ -67,41 +74,70 @@ const parseOFX = (buffer) => {
     return transactions;
 };
 
-// Detect category based on description
+// Detect category based on description (Enhanced version matched with Pluggy)
 const detectCategory = (description) => {
+    if (!description) return 'Outros';
     const desc = description.toLowerCase();
 
-    if (desc.includes('mercado') || desc.includes('supermercado') || desc.includes('padaria') || desc.includes('restaurante') || desc.includes('ifood') || desc.includes('uber eats')) {
-        return 'Alimentação';
+    // Investimentos (aplicação, resgate, RDB, CDB, etc) - PRIORIDADE
+    if (desc.match(/aplicacao|aplica[cç][aã]o|resgate|rdb|cdb|lci|lca|tesouro|fundo|cdi|poupanca|poupan[cç]a|investimento|renda\s*fixa|corretora|xp|btg|rico|nuinvest/i)) {
+        return 'Investimento';
     }
-    if (desc.includes('cinema') || desc.includes('netflix') || desc.includes('spotify') || desc.includes('jogo') || desc.includes('lazer')) {
-        return 'Lazer';
+
+    // PIX e Transferências - MELHORADO (evitar falsos positivos)
+    if (desc.match(/^pix|^transf|^ted|^doc|transfer[eê]ncia|valor\s*adicionado/i) && !desc.match(/uber|99|raizen|shell|ipiranga/i)) {
+        return 'Transferência';
     }
-    if (desc.includes('aluguel') || desc.includes('condominio') || desc.includes('luz') || desc.includes('agua') || desc.includes('gas')) {
-        return 'Moradia';
-    }
-    if (desc.includes('internet') || desc.includes('telefone') || desc.includes('celular') || desc.includes('conta')) {
-        return 'Contas';
-    }
-    if (desc.includes('farmacia') || desc.includes('medic') || desc.includes('hospital') || desc.includes('saude')) {
-        return 'Saúde';
-    }
-    if (desc.includes('uber') || desc.includes('99') || desc.includes('gasolina') || desc.includes('combustivel') || desc.includes('onibus')) {
-        return 'Transporte';
-    }
-    if (desc.includes('escola') || desc.includes('curso') || desc.includes('livro') || desc.includes('educacao')) {
-        return 'Educação';
-    }
+
+    // Receitas
+    if (desc.match(/salario|sal[aá]rio|pagamento\s*recebido|rendimento|dividendo|cashback|estorno|reembolso/i)) return 'Receita';
+
+    // Alimentação - MUITO MELHORADO
+    if (desc.match(/mercado|supermercado|padaria|a[cç]ougue|feira|restaurante|lanchonete|pizzaria|hamburgu|mc\s*donald|burger|bk\s|bk$|\sbk\s|filial\s*bk|ifood|rappi|uber\s*eats|99\s*food|sushi|bar\s+|cafe\s+|cafeteria|starbucks|pao\s*de\s*acucar|carrefour|extra|walmart|atacadao|barreto|anchietao|compreaki|dogao|sorvete|lanches|pizz|hambur/i)) return 'Alimentação';
+
+    // Transporte - EXPANDIDO
+    if (desc.match(/uber|99|cabify|taxi|onibus|metro|trem|estacionamento|combustivel|gasolina|etanol|posto|shell|ipiranga|ped[aá]gio|multa|detran|ipva|seguro\s*auto|carro/i)) return 'Transporte';
+
+    // Lazer - EXPANDIDO
+    if (desc.match(/cinema|teatro|show|netflix|spotify|amazon\s*prime|disney|hbo|youtube|game|playstation|xbox|parque|festa|livro|livraria/i)) return 'Lazer';
+
+    // Moradia - EXPANDIDO
+    if (desc.match(/aluguel|condominio|iptu|energia|luz|[aá]gua|esgoto|gas|limpeza|reparo|reforma|m[oó]vel|eletrodom[eé]stico/i)) return 'Moradia';
+
+    // Saúde - EXPANDIDO
+    if (desc.match(/farm[aá]cia|drogaria|medicamento|hospital|cl[íi]nica|m[eé]dico|doutor|exame|consulta|dentista|psic|fisio|plano\s*sa[uú]de|unimed|amil/i)) return 'Saúde';
+
+    // Contas - com exclusões
+    if (desc.match(/fatura|cart[aã]o\s*cr[eé]dito|anuidade|boleto|telefone|vivo|tim|claro|seguro|taxa/i) && !desc.match(/mercado|restaurante|farmacia/i)) return 'Contas';
+
+    // Educação
+    if (desc.match(/escola|faculdade|curso|apostila|mensalidade\s*escolar/i)) return 'Educação';
 
     return 'Outros';
 };
 
-exports.uploadMiddleware = upload.single('file');
+exports.uploadMiddleware = (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            console.error('Multer error:', err);
+            return res.status(400).json({ error: `Erro no upload: ${err.message}` });
+        } else if (err) {
+            console.error('Upload error:', err);
+            return res.status(400).json({ error: err.message });
+        }
+        next();
+    });
+};
 
 exports.importFile = async (req, res) => {
     try {
+        console.log('Import request received');
+        console.log('Body:', req.body);
+        console.log('File:', req.file);
+
         if (!req.file) {
-            return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+            console.log('Error: No file received');
+            return res.status(400).json({ error: 'Nenhum arquivo enviado. Verifique se o arquivo é um CSV ou OFX válido e se não excede 5MB.' });
         }
 
         const { wallet_id } = req.body;
@@ -133,31 +169,52 @@ exports.importFile = async (req, res) => {
 
             // Try to map CSV columns (flexible mapping)
             parsedTransactions = csvData.map(row => {
-                // Common CSV column names
-                const date = row['Data'] || row['data'] || row['DATE'] || row['Date'];
-                const description = row['Descrição'] || row['Descricao'] || row['descrição'] || row['descricao'] || row['DESCRIPTION'] || row['Description'] || row['Histórico'] || row['Historico'];
-                const amount = row['Valor'] || row['valor'] || row['AMOUNT'] || row['Amount'] || row['Débito'] || row['Crédito'];
+                // Common CSV column names - Case insensitive search
+                const keys = Object.keys(row);
 
-                if (!date || !amount) return null;
+                const findKey = (candidates) => {
+                    return keys.find(k => candidates.includes(k.toLowerCase()) || candidates.includes(k));
+                };
+
+                const dateKey = findKey(['data', 'date', 'dtposted']);
+                const descKey = findKey(['descrição', 'descricao', 'description', 'histórico', 'historico', 'memo', 'estabelecimento']);
+                const amountKey = findKey(['valor', 'amount', 'trnamt', 'débito', 'debito', 'crédito', 'credito']);
+
+                const date = dateKey ? row[dateKey] : null;
+                const description = descKey ? row[descKey] : null;
+                const amount = amountKey ? row[amountKey] : null;
+
+                if (!date || !amount) {
+                    return null;
+                }
 
                 // Parse date (support multiple formats)
                 let parsedDate;
                 if (date.includes('/')) {
                     const parts = date.split('/');
+                    // DD/MM/YYYY
                     parsedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                 } else if (date.includes('-')) {
                     parsedDate = date;
                 } else {
-                    parsedDate = new Date().toISOString().split('T')[0];
+                    try {
+                        parsedDate = new Date(date).toISOString().split('T')[0];
+                    } catch (e) {
+                        parsedDate = new Date().toISOString().split('T')[0];
+                    }
                 }
 
                 // Parse amount (handle different formats)
-                let parsedAmount = amount.toString()
-                    .replace('R$', '')
-                    .replace(/\s/g, '')
-                    .replace('.', '')
-                    .replace(',', '.');
+                let parsedAmount = amount.toString();
+                // If brazilian format 1.000,00 -> remove dot, replace comma
+                if (parsedAmount.includes(',') && parsedAmount.includes('.')) {
+                    parsedAmount = parsedAmount.replace(/\./g, '').replace(',', '.');
+                } else if (parsedAmount.includes(',')) {
+                    parsedAmount = parsedAmount.replace(',', '.');
+                }
+
                 parsedAmount = parseFloat(parsedAmount);
+                if (isNaN(parsedAmount)) return null;
 
                 return {
                     date: parsedDate,

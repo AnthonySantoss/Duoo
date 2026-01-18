@@ -13,6 +13,10 @@ const creditCardRoutes = require('./routes/creditCardRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 const pluggyRoutes = require('./routes/pluggyRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const achievementRoutes = require('./routes/achievementRoutes');
+const alertRoutes = require('./routes/alertRoutes');
+
 
 const app = express();
 
@@ -33,5 +37,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/loans', require('./routes/loanRoutes'));
 app.use('/api/pluggy', pluggyRoutes);
+app.use('/api/category', categoryRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/alerts', alertRoutes);
 
 module.exports = app;

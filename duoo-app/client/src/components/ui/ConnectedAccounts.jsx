@@ -1,43 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Building2, Trash2, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
+import ConfirmModal from './ConfirmModal';
+import Toast from './Toast';
 
 const ConnectedAccounts = ({ onDisconnect }) => {
     const [connectedItems, setConnectedItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(null);
+    const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
+    const [itemToDisconnect, setItemToDisconnect] = useState(null);
+    const [toast, setToast] = useState(null);
 
     useEffect(() => {
         fetchConnectedItems();
+
+        // Auto-refresh every 30 seconds to keep data fresh
+        const interval = setInterval(() => {
+            fetchConnectedItems(true); // Silent refresh
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
-    const fetchConnectedItems = async () => {
+    const fetchConnectedItems = async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
+
         try {
             const response = await api.get('/pluggy/connected-items');
             setConnectedItems(response.data);
+            console.log('Connected items loaded:', response.data);
         } catch (error) {
             console.error('Failed to fetch connected items:', error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
-    const handleDisconnect = async (itemId, bankName) => {
-        if (!confirm(`Tem certeza que deseja desconectar ${bankName}? Isso removerá todas as transações sincronizadas.`)) {
-            return;
-        }
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchConnectedItems();
+    };
 
+    const handleDisconnect = (itemId, bankName) => {
+        setItemToDisconnect({ id: itemId, name: bankName });
+        setDisconnectConfirmOpen(true);
+    };
+
+    const confirmDisconnect = async () => {
+        if (!itemToDisconnect) return;
+
+        const itemId = itemToDisconnect.id;
         setDisconnecting(itemId);
 
         try {
             await api.delete(`/pluggy/disconnect/${itemId}`);
             setConnectedItems(items => items.filter(item => item.pluggy_item_id !== itemId));
             onDisconnect?.();
+            setToast({ message: 'Conta desconectada com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to disconnect:', error);
-            alert('Erro ao desconectar. Tente novamente.');
+            setToast({ message: 'Erro ao desconectar. Tente novamente.', type: 'error' });
         } finally {
             setDisconnecting(null);
+            setItemToDisconnect(null);
         }
     };
 
@@ -78,6 +108,25 @@ const ConnectedAccounts = ({ onDisconnect }) => {
 
     return (
         <div className="space-y-3">
+            {/* Header with refresh button */}
+            <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {connectedItems.length > 0
+                        ? `${connectedItems.length} conta${connectedItems.length > 1 ? 's' : ''} conectada${connectedItems.length > 1 ? 's' : ''}`
+                        : 'Nenhuma conta conectada'
+                    }
+                </p>
+                <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors disabled:opacity-50"
+                    title="Atualizar contas"
+                >
+                    <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                    <span>Atualizar</span>
+                </button>
+            </div>
+
             {Object.values(groupedItems).map((group) => (
                 <div
                     key={group.itemId}
@@ -146,6 +195,24 @@ const ConnectedAccounts = ({ onDisconnect }) => {
                     </p>
                 </div>
             </div>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+
+            <ConfirmModal
+                isOpen={disconnectConfirmOpen}
+                onClose={() => setDisconnectConfirmOpen(false)}
+                onConfirm={confirmDisconnect}
+                title="Desconectar Conta"
+                message={`Tem certeza que deseja desconectar ${itemToDisconnect?.name}? Isso removerá todas as transações sincronizadas.`}
+                type="danger"
+                confirmText="Desconectar"
+                cancelText="Cancelar"
+            />
         </div>
     );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { UploadCloud, FileText, FileSpreadsheet, Download, Building2, RefreshCw } from 'lucide-react';
+import { UploadCloud, FileText, FileSpreadsheet, Download, Building2, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import PluggyConnect from '../components/ui/PluggyConnect';
@@ -101,11 +101,7 @@ const Statement = () => {
             formData.append('file', selectedFile);
             formData.append('wallet_id', selectedWalletForImport);
 
-            const res = await api.post('/import/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
+            const res = await api.post('/import/upload', formData);
 
             setImportResult({
                 success: true,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link as LinkIcon, CheckCircle2, Settings as SettingsIcon, Unlink, QrCode, Copy } from 'lucide-react';
 import Card from '../components/ui/Card';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
@@ -12,6 +13,7 @@ const LinkAccounts = () => {
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [unlinkConfirmOpen, setUnlinkConfirmOpen] = useState(false);
 
     useEffect(() => {
         fetchMyCode();
@@ -57,10 +59,11 @@ const LinkAccounts = () => {
         }
     };
 
-    const handleUnlinkPartner = async () => {
-        if (!confirm('Tem certeza que deseja desvincular as contas? Esta ação não pode ser desfeita.')) {
-            return;
-        }
+    const handleUnlinkPartner = () => {
+        setUnlinkConfirmOpen(true);
+    };
+
+    const confirmUnlinkPartner = async () => {
 
         setLoading(true);
         setToast(null);
@@ -198,6 +201,17 @@ const LinkAccounts = () => {
                     onClose={() => setToast(null)}
                 />
             )}
+
+            <ConfirmModal
+                isOpen={unlinkConfirmOpen}
+                onClose={() => setUnlinkConfirmOpen(false)}
+                onConfirm={confirmUnlinkPartner}
+                title="Desvincular Contas"
+                message="Tem certeza que deseja desvincular as contas? Esta ação não pode ser desfeita."
+                type="danger"
+                confirmText="Desvincular"
+                cancelText="Cancelar"
+            />
         </div>
     );
 };

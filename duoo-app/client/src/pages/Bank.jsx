@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Toast from '../components/ui/Toast';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 
 const Bank = () => {
@@ -27,6 +28,13 @@ const Bank = () => {
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedLoanForPayment, setSelectedLoanForPayment] = useState(null);
     const [paymentWalletId, setPaymentWalletId] = useState('');
+
+    // Link Transaction Modal State
+    const [linkModalOpen, setLinkModalOpen] = useState(false);
+    const [compatibleTransactions, setCompatibleTransactions] = useState([]);
+    const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [pendingLoanData, setPendingLoanData] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -74,22 +82,80 @@ const Bank = () => {
             return;
         }
 
+        // Salvar dados do empréstimo pendente
+        setPendingLoanData({
+            goal_id: loanForm.goalId,
+            wallet_id: loanForm.walletId,
+            amount: parseFloat(loanForm.amount),
+            installments: parseInt(loanForm.installments),
+            interest_rate: parseFloat(loanForm.interestRate)
+        });
+
+        // Buscar transações compatíveis
         try {
-            await api.post('/loans', {
-                goal_id: loanForm.goalId,
-                wallet_id: loanForm.walletId,
-                amount: parseFloat(loanForm.amount),
-                installments: parseInt(loanForm.installments),
-                interest_rate: parseFloat(loanForm.interestRate)
+            const res = await api.get('/loans/compatible-transactions', {
+                params: {
+                    amount: loanForm.amount,
+                    days: 7
+                }
             });
 
+            setCompatibleTransactions(res.data);
+
+            if (res.data.length > 0) {
+                // Tem transações compatíveis - abrir modal de sugestão
+                setLinkModalOpen(true);
+            } else {
+                // Não tem transações - perguntar se já retirou
+                setWithdrawConfirmOpen(true);
+            }
+        } catch (error) {
+            console.error('Failed to fetch compatible transactions:', error);
+            // Se falhar, criar empréstimo normalmente
+            await createLoanWithoutLink();
+        }
+    };
+
+    const createLoanWithoutLink = async () => {
+        try {
+            await api.post('/loans', pendingLoanData);
             showToast("Empréstimo realizado com sucesso! O valor foi transferido para sua carteira.", "success");
             setLoanForm(prev => ({ ...prev, goalId: '', amount: '', installments: 6, interestRate: 2.0 }));
-            fetchData(); // Refresh all data
+            setPendingLoanData(null);
+            fetchData();
         } catch (error) {
             console.error("Failed to create loan", error);
             showToast(error.response?.data?.error || "Erro ao criar empréstimo", "error");
         }
+    };
+
+    const handleLinkTransaction = async (transaction) => {
+        setSelectedTransaction(transaction);
+
+        try {
+            // Criar empréstimo
+            const loanRes = await api.post('/loans', pendingLoanData);
+
+            // Vincular transação
+            await api.put(`/loans/${loanRes.data.id}/link-transaction`, {
+                transaction_id: transaction.id
+            });
+
+            showToast(`Empréstimo criado e vinculado à transação "${transaction.title}"!`, "success");
+            setLinkModalOpen(false);
+            setLoanForm(prev => ({ ...prev, goalId: '', amount: '', installments: 6, interestRate: 2.0 }));
+            setPendingLoanData(null);
+            setSelectedTransaction(null);
+            fetchData();
+        } catch (error) {
+            console.error("Failed to create and link loan", error);
+            showToast(error.response?.data?.error || "Erro ao criar empréstimo", "error");
+        }
+    };
+
+    const handleSkipLink = async () => {
+        setLinkModalOpen(false);
+        await createLoanWithoutLink();
     };
 
     const openPaymentModal = (loan) => {
@@ -174,7 +240,7 @@ const Bank = () => {
                                 >
                                     {wallets.map(w => (
                                         <option key={w.id} value={w.id}>
-                                            {w.name} (Saldo: R$ {parseFloat(w.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                                            {w.name} (Saldo: R$ {parseFloat(w.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                                         </option>
                                     ))}
                                 </select>
@@ -197,6 +263,80 @@ const Bank = () => {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Modal de Vinculação de Transação */}
+            <Modal
+                isOpen={linkModalOpen}
+                onClose={() => setLinkModalOpen(false)}
+                title="🔗 Vincular Transação Bancária"
+            >
+                <div className="space-y-6">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/30 p-4 rounded-xl">
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                            <strong>✨ Encontramos {compatibleTransactions.length} transação(ões) compatível(is)!</strong>
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+                            Vincular ajuda a rastrear a origem do dinheiro e manter seu controle financeiro organizado.
+                        </p>
+                    </div>
+
+                    {compatibleTransactions.length > 0 && (
+                        <div>
+                            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                                Selecione a transação correspondente:
+                            </h4>
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {compatibleTransactions.map(t => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => handleLinkTransaction(t)}
+                                        className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all text-left group"
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <h5 className="font-bold text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
+                                                    {t.title}
+                                                </h5>
+                                                <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                                    <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                                    <span>•</span>
+                                                    <span>{t.category}</span>
+                                                    {t.wallet && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span>{t.wallet.bank_name || t.wallet.name}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right ml-4">
+                                                <p className="font-bold text-lg text-slate-900 dark:text-white">
+                                                    R$ {Math.abs(parseFloat(t.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </p>
+                                                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                                    {t.similarity}% compatível
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                            onClick={handleSkipLink}
+                            className="w-full py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm"
+                        >
+                            Nenhuma dessas / Pular vinculação
+                        </button>
+                        <p className="text-xs text-slate-500 text-center mt-2">
+                            Você pode vincular depois se necessário
+                        </p>
+                    </div>
+                </div>
             </Modal>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -232,7 +372,7 @@ const Bank = () => {
                                 >
                                     <option value="">Selecione uma meta...</option>
                                     {goals.map(g => (
-                                        <option key={g.id} value={g.id}>{g.title} (Disp: R$ {parseFloat(g.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</option>
+                                        <option key={g.id} value={g.id}>{g.title} (Disp: R$ {parseFloat(g.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</option>
                                     ))}
                                 </select>
                             </div>
@@ -246,7 +386,7 @@ const Bank = () => {
                                 >
                                     <option value="">Selecione uma carteira...</option>
                                     {wallets.map(w => (
-                                        <option key={w.id} value={w.id}>{w.name} (Saldo: R$ {parseFloat(w.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</option>
+                                        <option key={w.id} value={w.id}>{w.name} (Saldo: R$ {parseFloat(w.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</option>
                                     ))}
                                 </select>
                             </div>
@@ -290,7 +430,7 @@ const Bank = () => {
                                 <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl text-sm space-y-2 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                     <div className="flex justify-between font-medium">
                                         <span>Valor Solicitado:</span>
-                                        <span>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                        <span>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between font-medium">
                                         <span>Juros Totais:</span>

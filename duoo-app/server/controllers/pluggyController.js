@@ -394,7 +394,15 @@ const getConnectedItems = async (req, res) => {
                 user_id: userId,
                 pluggy_item_id: { [Op.ne]: null }
             },
-            attributes: ['id', 'name', 'bank_name', 'balance', 'last_sync', 'pluggy_item_id']
+            attributes: ['id', 'name', 'bank_name', 'balance', 'last_sync', 'pluggy_item_id', 'pluggy_account_id'],
+            order: [['last_sync', 'DESC']]
+        });
+
+        console.log(`[getConnectedItems] User ${userId} has ${wallets.length} connected wallets`);
+
+        // Log each wallet for debugging
+        wallets.forEach(wallet => {
+            console.log(`  - ${wallet.bank_name} (${wallet.name}): R$ ${wallet.balance} - Last sync: ${wallet.last_sync}`);
         });
 
         res.json(wallets);

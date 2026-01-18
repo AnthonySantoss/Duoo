@@ -123,7 +123,7 @@ const Overview = () => {
                 return {
                     amount: savingsAmount,
                     goal: goalWithLowestProgress,
-                    message: `Você economizou R$ ${savingsAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} este mês! Que tal destinar para a meta "${goalWithLowestProgress.title}"?`
+                    message: `Você economizou R$ ${savingsAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} este mês! Que tal destinar para a meta "${goalWithLowestProgress.title}"?`
                 };
             }
         }
@@ -155,7 +155,7 @@ const Overview = () => {
                         </Badge>
                     </div>
                     <p className="text-slate-500 text-sm">Saldo Disponível</p>
-                    <h3 className="text-2xl font-bold">R$ {parseFloat(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold">R$ {parseFloat(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </Card>
 
                 <Card>
@@ -163,7 +163,7 @@ const Overview = () => {
                         <div className="p-2 bg-rose-100 text-rose-600 rounded-lg"><ArrowDownCircle size={20} /></div>
                     </div>
                     <p className="text-slate-500 text-sm">Gastos no Mês</p>
-                    <h3 className="text-2xl font-bold">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </Card>
 
                 <Card>
@@ -174,7 +174,7 @@ const Overview = () => {
                         )}
                     </div>
                     <p className="text-slate-500 text-sm">Fatura Cartão</p>
-                    <h3 className="text-2xl font-bold">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </Card>
 
                 <Card>
@@ -182,7 +182,7 @@ const Overview = () => {
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><ArrowUpCircle size={20} /></div>
                     </div>
                     <p className="text-slate-500 text-sm">Economizado</p>
-                    <h3 className="text-2xl font-bold">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </Card>
 
                 <Card>
@@ -190,7 +190,7 @@ const Overview = () => {
                         <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><TrendingUp size={20} /></div>
                     </div>
                     <p className="text-slate-500 text-sm">Total Guardado</p>
-                    <h3 className="text-2xl font-bold">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </Card>
             </div>
 
@@ -216,7 +216,7 @@ const Overview = () => {
                                                 <span className="font-medium text-slate-700 dark:text-slate-300">{item.category}</span>
                                             </div>
                                             <div className="text-right">
-                                                <span className="font-bold block">R$ {parseFloat(item.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                <span className="font-bold block">R$ {parseFloat(item.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -261,7 +261,7 @@ const Overview = () => {
                                         </div>
                                     </div>
                                     <span className={`font-bold ${parseFloat(item.amount) > 0 ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
-                                        {parseFloat(item.amount) > 0 ? '+' : ''}R$ {Math.abs(parseFloat(item.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        {parseFloat(item.amount) > 0 ? '+' : ''}R$ {Math.abs(parseFloat(item.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
                             )) : (
@@ -297,8 +297,8 @@ const Overview = () => {
                                             </div>
                                             <ProgressBar progress={progress} colorClass="bg-emerald-500" />
                                             <div className="flex justify-between text-xs text-slate-500">
-                                                <span>R$ {parseFloat(goal.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                                <span>R$ {parseFloat(goal.target_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                <span>R$ {parseFloat(goal.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                <span>R$ {parseFloat(goal.target_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
                                         </div>
                                     );

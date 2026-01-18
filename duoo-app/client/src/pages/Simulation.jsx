@@ -341,7 +341,7 @@ const Simulation = () => {
                                                 <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-semibold">{sim.installments}x</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">
-                                                R$ {parseFloat(sim.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                R$ {parseFloat(sim.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                         </tr>
                                     ))

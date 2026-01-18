@@ -172,3 +172,137 @@ exports.payInstallment = async (req, res) => {
         res.status(500).json({ error: 'Failed to pay installment' });
     }
 };
+
+/**
+ * Busca transações compatíveis para vincular ao empréstimo
+ * Busca nos últimos 7 dias, com valor ±10%, categorias relevantes
+ */
+exports.getCompatibleTransactions = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { amount, days = 7 } = req.query;
+
+        if (!amount) {
+            return res.status(400).json({ error: 'Amount is required' });
+        }
+
+        const targetAmount = Math.abs(parseFloat(amount));
+        const minAmount = targetAmount * 0.9; // -10%
+        const maxAmount = targetAmount * 1.1; // +10%
+
+        // Data de início (X dias atrás)
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - parseInt(days));
+
+        // Buscar transações de saída (negativas) que podem ser saques/transferências
+        const transactions = await Transaction.findAll({
+            where: {
+                user_id: userId,
+                date: { [Op.gte]: startDate },
+                amount: { [Op.lt]: 0 }, // Apenas saídas
+                category: {
+                    [Op.in]: ['Transferência', 'Saque', 'Outros']
+                }
+            },
+            include: [
+                { model: Wallet, attributes: ['name', 'bank_name'] }
+            ],
+            order: [['date', 'DESC']]
+        });
+
+        // Filtrar por valor compatível
+        const compatible = transactions.filter(t => {
+            const tAmount = Math.abs(parseFloat(t.amount));
+            return tAmount >= minAmount && tAmount <= maxAmount;
+        });
+
+        // Formatar resposta
+        const formatted = compatible.map(t => ({
+            id: t.id,
+            title: t.title,
+            amount: parseFloat(t.amount),
+            date: t.date,
+            category: t.category,
+            wallet: t.Wallet ? {
+                name: t.Wallet.name,
+                bank_name: t.Wallet.bank_name
+            } : null,
+            similarity: Math.round((1 - Math.abs(Math.abs(parseFloat(t.amount)) - targetAmount) / targetAmount) * 100)
+        }));
+
+        // Ordenar por similaridade (mais similar primeiro)
+        formatted.sort((a, b) => b.similarity - a.similarity);
+
+        res.json(formatted);
+    } catch (error) {
+        console.error('Error fetching compatible transactions:', error);
+        res.status(500).json({ error: 'Failed to fetch compatible transactions' });
+    }
+};
+
+/**
+ * Vincula uma transação ao empréstimo e renomeia
+ */
+exports.linkTransaction = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params; // loan ID
+        const { transaction_id } = req.body;
+
+        if (!transaction_id) {
+            return res.status(400).json({ error: 'Transaction ID is required' });
+        }
+
+        // Buscar empréstimo
+        const loan = await Loan.findOne({
+            where: { id, user_id: userId },
+            include: [{ model: Goal, attributes: ['title'] }]
+        });
+
+        if (!loan) {
+            return res.status(404).json({ error: 'Loan not found' });
+        }
+
+        // Buscar transação
+        const transaction = await Transaction.findOne({
+            where: { id: transaction_id, user_id: userId }
+        });
+
+        if (!transaction) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+
+        // Buscar nome do usuário
+        const user = await User.findByPk(userId);
+        const userName = user ? user.name : 'Usuário';
+
+        // Renomear transação
+        const goalTitle = loan.Goal ? loan.Goal.title : 'Meta';
+        await transaction.update({
+            title: `Auto-empréstimo - ${userName} (${goalTitle})`,
+            category: 'Transferência'
+        });
+
+        // Vincular ao empréstimo
+        await loan.update({
+            linked_transaction_id: transaction_id
+        });
+
+        res.json({
+            success: true,
+            message: 'Transaction linked successfully',
+            loan: {
+                id: loan.id,
+                linked_transaction_id: loan.linked_transaction_id
+            },
+            transaction: {
+                id: transaction.id,
+                title: transaction.title,
+                category: transaction.category
+            }
+        });
+    } catch (error) {
+        console.error('Error linking transaction:', error);
+        res.status(500).json({ error: 'Failed to link transaction' });
+    }
+};

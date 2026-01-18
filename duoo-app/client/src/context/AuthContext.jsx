@@ -12,15 +12,28 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const loadUser = async () => {
             const token = localStorage.getItem('token');
+            console.log('[AuthContext] Loading user, token exists:', !!token);
+
             if (token) {
                 try {
+                    console.log('[AuthContext] Fetching user data...');
                     const res = await api.get('/auth/me');
+                    console.log('[AuthContext] User data loaded:', res.data.user.email);
                     setUser(res.data.user);
                     setPartner(res.data.partner);
                     setHasPartner(res.data.hasPartner);
                 } catch (error) {
-                    localStorage.removeItem('token');
+                    console.error('[AuthContext] Failed to load user:', error.response?.status, error.response?.data);
+                    // Only remove token if it's actually invalid (401), not on network errors
+                    if (error.response?.status === 401) {
+                        console.log('[AuthContext] Token invalid, removing...');
+                        localStorage.removeItem('token');
+                    } else {
+                        console.log('[AuthContext] Network error, keeping token for retry');
+                    }
                 }
+            } else {
+                console.log('[AuthContext] No token found in localStorage');
             }
             setLoading(false);
         };
@@ -54,7 +67,18 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, partner, hasPartner, login, register, logout, loading }}>
+        <AuthContext.Provider value={{
+            user,
+            partner,
+            hasPartner,
+            login,
+            register,
+            logout,
+            loading,
+            setUser,
+            setPartner,
+            setHasPartner
+        }}>
             {children}
         </AuthContext.Provider>
     );

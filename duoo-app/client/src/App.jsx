@@ -10,6 +10,7 @@ import Bank from './pages/Bank';
 
 import LinkAccounts from './pages/LinkAccounts';
 import Settings from './pages/Settings';
+import Achievements from './pages/Achievements';
 import Simulation from './pages/Simulation';
 import Forecast from './pages/Forecast';
 import Statement from './pages/Statement';
@@ -42,6 +43,7 @@ function App() {
             <Route path="investments" element={<Investments />} />
             <Route path="link-accounts" element={<LinkAccounts />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="achievements" element={<Achievements />} />
             <Route path="economy-forecast" element={<EconomyForecast />} />
 
             {/* Fallback for other routes */}

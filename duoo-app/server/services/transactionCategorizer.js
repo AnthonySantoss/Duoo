@@ -126,7 +126,163 @@ class SmartTransactionCategorizer {
     }
 
     /**
-     * Categoriza uma transação
+     * Busca correção do usuário para uma descrição
+     */
+    async getUserCorrection(userId, description) {
+        if (!userId || !description) return null;
+
+        try {
+            const { TransactionCorrection } = require('../models');
+            const normalized = this.normalize(description);
+
+            // Buscar correção exata
+            const exactMatch = await TransactionCorrection.findOne({
+                where: {
+                    user_id: userId,
+                    description_normalized: normalized
+                },
+                order: [['confidence', 'DESC'], ['times_used', 'DESC']]
+            });
+
+            if (exactMatch) {
+                return {
+                    category: exactMatch.corrected_category,
+                    confidence: exactMatch.confidence,
+                    source: 'user_correction_exact'
+                };
+            }
+
+            // Buscar correção similar (contém ou está contido)
+            const allCorrections = await TransactionCorrection.findAll({
+                where: {
+                    user_id: userId
+                },
+                order: [['confidence', 'DESC'], ['times_used', 'DESC']],
+                limit: 50
+            });
+
+            for (const correction of allCorrections) {
+                const correctionNorm = correction.description_normalized;
+
+                // Se a descrição contém a correção ou vice-versa
+                if (normalized.includes(correctionNorm) || correctionNorm.includes(normalized)) {
+                    // Reduzir confiança para matches parciais
+                    const partialConfidence = Math.max(70, correction.confidence - 20);
+
+                    return {
+                        category: correction.corrected_category,
+                        confidence: partialConfidence,
+                        source: 'user_correction_partial'
+                    };
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error fetching user correction:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Salva ou atualiza uma correção do usuário
+     */
+    async saveUserCorrection(userId, description, originalCategory, correctedCategory) {
+        if (!userId || !description || !correctedCategory) {
+            throw new Error('Missing required parameters');
+        }
+
+        try {
+            const { TransactionCorrection } = require('../models');
+            const normalized = this.normalize(description);
+
+            // Buscar se já existe
+            const existing = await TransactionCorrection.findOne({
+                where: {
+                    user_id: userId,
+                    description_normalized: normalized
+                }
+            });
+
+            if (existing) {
+                // Atualizar existente
+                await existing.update({
+                    corrected_category: correctedCategory,
+                    original_category: originalCategory,
+                    confidence: Math.min(100, existing.confidence + 5), // Aumentar confiança
+                    times_used: existing.times_used + 1
+                });
+                return existing;
+            } else {
+                // Criar nova
+                return await TransactionCorrection.create({
+                    user_id: userId,
+                    description,
+                    description_normalized: normalized,
+                    original_category: originalCategory,
+                    corrected_category: correctedCategory,
+                    confidence: 100,
+                    times_used: 0
+                });
+            }
+        } catch (error) {
+            console.error('Error saving user correction:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Categoriza uma transação (versão assíncrona com suporte a correções)
+     */
+    async categorizeAsync(description, pluggyCategory = null, userId = null) {
+        if (!description) return { category: 'Outros', confidence: 0, source: 'default' };
+
+        // 1. Prioridade máxima: Correção do usuário
+        if (userId) {
+            const userCorrection = await this.getUserCorrection(userId, description);
+            if (userCorrection && userCorrection.confidence >= 70) {
+                return userCorrection;
+            }
+        }
+
+        // 2. Categoria do Pluggy
+        if (pluggyCategory) {
+            const pluggyMap = {
+                'Food and Drink': 'Alimentação',
+                'Transportation': 'Transporte',
+                'Entertainment': 'Lazer',
+                'Home': 'Moradia',
+                'Healthcare': 'Saúde',
+                'Bills and Utilities': 'Contas',
+                'Education': 'Educação',
+                'Shopping': 'Compras',
+                'Transfer': 'Transferência',
+                'Income': 'Receita',
+                'Investment': 'Investimento'
+            };
+
+            if (pluggyMap[pluggyCategory]) {
+                return {
+                    category: pluggyMap[pluggyCategory],
+                    confidence: 60,
+                    source: 'pluggy'
+                };
+            }
+        }
+
+        // 3. Sistema de scores
+        const category = this.categorize(description, pluggyCategory);
+        const confidence = this.getConfidence(description, category);
+
+        return {
+            category,
+            confidence,
+            source: 'keywords'
+        };
+    }
+
+    /**
+     * Categoriza uma transação (versão síncrona - mantida para compatibilidade)
      */
     categorize(description, pluggyCategory = null) {
         if (!description) return 'Outros';

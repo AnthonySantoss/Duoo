@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { PlusCircle, Landmark, Wallet as WalletIcon, Edit, Trash2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +17,8 @@ const Wallets = () => {
     const [loading, setLoading] = useState(true);
     const [editingWallet, setEditingWallet] = useState(null);
     const [toast, setToast] = useState(null);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [walletToDelete, setWalletToDelete] = useState(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -112,15 +115,22 @@ const Wallets = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Tem certeza que deseja excluir esta carteira?')) return;
+    const handleDelete = (id) => {
+        setWalletToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
 
+    const confirmDelete = async () => {
+        if (!walletToDelete) return;
         try {
-            await api.delete(`/wallets/${id}`);
+            await api.delete(`/wallets/${walletToDelete}`);
             fetchWallets();
+            setToast({ message: 'Carteira excluída com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to delete wallet:', error);
             setToast({ message: error.response?.data?.error || 'Erro ao excluir carteira', type: 'error' });
+        } finally {
+            setWalletToDelete(null);
         }
     };
 
@@ -186,7 +196,7 @@ const Wallets = () => {
                         </div>
                         <h4 className="font-bold text-lg mb-1">{wallet.name}</h4>
                         <p className="text-2xl font-bold text-slate-700 dark:text-slate-200">
-                            R$ {parseFloat(wallet.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {parseFloat(wallet.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                     </div>
                 ))}
@@ -273,6 +283,18 @@ const Wallets = () => {
                     </button>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={deleteConfirmOpen}
+                onClose={() => setDeleteConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="Excluir Carteira"
+                message="Tem certeza que deseja excluir esta carteira? Esta ação não pode ser desfeita."
+                type="danger"
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
+
             {toast && (
                 <Toast
                     message={toast.message}

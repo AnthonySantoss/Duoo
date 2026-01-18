@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { CreditCard as CreditCardIcon, PlusCircle, Edit, Trash2, ShoppingCart, Calendar, TrendingDown, ChevronRight } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import ProgressBar from '../components/ui/ProgressBar';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +20,14 @@ const CreditCards = () => {
     const [invoices, setInvoices] = useState([]);
     const [editingInvoice, setEditingInvoice] = useState(null);
     const [toast, setToast] = useState(null);
+
     const [wallets, setWallets] = useState([]);
+
+    // Confirmações
+    const [deleteInvoiceConfirmOpen, setDeleteInvoiceConfirmOpen] = useState(false);
+    const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+    const [deleteCardConfirmOpen, setDeleteCardConfirmOpen] = useState(false);
+    const [cardToDelete, setCardToDelete] = useState(null);
 
     const [cardFormData, setCardFormData] = useState({
         name: '',
@@ -140,14 +148,22 @@ const CreditCards = () => {
         }
     };
 
-    const handleDeleteInvoice = async (id) => {
-        if (!confirm('Tem certeza que deseja excluir esta fatura?')) return;
+    const handleDeleteInvoice = (id) => {
+        setInvoiceToDelete(id);
+        setDeleteInvoiceConfirmOpen(true);
+    };
+
+    const confirmDeleteInvoice = async () => {
+        if (!invoiceToDelete) return;
         try {
-            await api.delete(`/invoices/${id}`);
+            await api.delete(`/invoices/${invoiceToDelete}`);
             await fetchInvoices();
+            setToast({ message: 'Fatura excluída com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to delete invoice:', error);
             setToast({ message: error.response?.data?.error || 'Erro ao excluir fatura', type: 'error' });
+        } finally {
+            setInvoiceToDelete(null);
         }
     };
 
@@ -204,15 +220,22 @@ const CreditCards = () => {
         }
     };
 
-    const handleDeleteCard = async (id) => {
-        if (!confirm('Tem certeza? Isso excluirá todas as compras deste cartão.')) return;
+    const handleDeleteCard = (id) => {
+        setCardToDelete(id);
+        setDeleteCardConfirmOpen(true);
+    };
 
+    const confirmDeleteCard = async () => {
+        if (!cardToDelete) return;
         try {
-            await api.delete(`/credit-cards/${id}`);
+            await api.delete(`/credit-cards/${cardToDelete}`);
             fetchCreditCards();
+            setToast({ message: 'Cartão excluído com sucesso', type: 'success' });
         } catch (error) {
             console.error('Failed to delete credit card:', error);
             setToast({ message: error.response?.data?.error || 'Erro ao excluir cartão', type: 'error' });
+        } finally {
+            setCardToDelete(null);
         }
     };
 
@@ -430,7 +453,7 @@ const CreditCards = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className="font-bold text-slate-900 dark:text-white">
-                                                        R$ {parseFloat(invoice.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        R$ {parseFloat(invoice.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
@@ -683,6 +706,28 @@ const CreditCards = () => {
                     </button>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={deleteInvoiceConfirmOpen}
+                onClose={() => setDeleteInvoiceConfirmOpen(false)}
+                onConfirm={confirmDeleteInvoice}
+                title="Excluir Fatura"
+                message="Tem certeza que deseja excluir esta fatura?"
+                type="danger"
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
+
+            <ConfirmModal
+                isOpen={deleteCardConfirmOpen}
+                onClose={() => setDeleteCardConfirmOpen(false)}
+                onConfirm={confirmDeleteCard}
+                title="Excluir Cartão"
+                message="Tem certeza? Isso excluirá todas as compras deste cartão."
+                type="danger"
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
             {toast && (
                 <Toast
                     message={toast.message}
