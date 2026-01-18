@@ -41,4 +41,14 @@ app.use('/api/category', categoryRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
 
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    // Serve static files from the 'public' directory (where we'll copy the React build)
+    app.use(express.static(path.join(__dirname, 'public')));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'public/index.html'));
+    });
+}
+
 module.exports = app;

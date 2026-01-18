@@ -32,6 +32,10 @@ const Goal = sequelize.define('Goal', {
         type: DataTypes.BOOLEAN,
         defaultValue: false
     },
+    accumulated_yield: {
+        type: DataTypes.DECIMAL(10, 2),
+        defaultValue: 0.00
+    },
     cdi_percentage: {
         type: DataTypes.DECIMAL(5, 2),
         allowNull: true

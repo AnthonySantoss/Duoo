@@ -1,6 +1,7 @@
 const { Transaction, Wallet, User } = require('../models');
 const { Op } = require('sequelize');
 const budgetAlertService = require('../services/budgetAlertService');
+const achievementService = require('../services/achievementService');
 
 exports.getTransactions = async (req, res) => {
     try {
@@ -86,6 +87,9 @@ exports.createTransaction = async (req, res) => {
 
         // Check for budget alerts
         await budgetAlertService.checkAlerts(transaction);
+
+        // Check for achievements
+        await achievementService.checkAndUnlockAchievements(req.user.id);
 
         res.status(201).json(transaction);
     } catch (error) {

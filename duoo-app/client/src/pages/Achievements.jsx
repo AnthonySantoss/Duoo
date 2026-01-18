@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Star, Target, TrendingUp, Award, Lock } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
+import { Trophy, Star, Target, TrendingUp, Award, Lock, Users, User } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Toast from '../components/ui/Toast';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const Achievements = () => {
+    const { user, partner } = useAuth();
+    const { viewMode } = useOutletContext() || { viewMode: 'joint' };
     const [achievements, setAchievements] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -15,13 +19,13 @@ const Achievements = () => {
     useEffect(() => {
         fetchData();
         checkNewAchievements();
-    }, []);
+    }, [viewMode]);
 
     const fetchData = async () => {
         try {
             const [achievementsRes, statsRes] = await Promise.all([
-                api.get('/achievements'),
-                api.get('/achievements/stats')
+                api.get('/achievements', { params: { viewMode } }),
+                api.get('/achievements/stats', { params: { viewMode } })
             ]);
 
             setAchievements(achievementsRes.data);
@@ -135,7 +139,12 @@ const Achievements = () => {
                 )}
             </Modal>
 
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">🏆 Conquistas</h3>
+            <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    {viewMode === 'joint' ? <Users size={24} /> : <User size={24} />}
+                    {viewMode === 'joint' ? 'Conquistas em Conjunto' : viewMode === 'user1' ? 'Minhas Conquistas' : 'Conquistas do Parceiro'}
+                </h3>
+            </div>
 
             {/* Estatísticas */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -204,8 +213,8 @@ const Achievements = () => {
                         <Card
                             key={achievement.id}
                             className={`p-6 relative overflow-hidden transition-all ${isLocked
-                                    ? 'opacity-60 grayscale'
-                                    : 'hover:shadow-lg hover:scale-105'
+                                ? 'opacity-60 grayscale'
+                                : 'hover:shadow-lg hover:scale-105'
                                 }`}
                         >
                             {achievement.is_new && (
@@ -240,8 +249,23 @@ const Achievements = () => {
                                     </span>
                                 </div>
 
-                                {achievement.is_unlocked && achievement.unlocked_at && (
-                                    <p className="text-xs text-slate-500">
+                                {viewMode === 'joint' && achievement.unlocked_by && achievement.unlocked_by.length > 0 && (
+                                    <div className="flex justify-center gap-2 mt-3">
+                                        {achievement.unlocked_by.includes(user?.id) && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                Você
+                                            </span>
+                                        )}
+                                        {partner && achievement.unlocked_by.includes(partner.id) && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                {partner.name?.split(' ')[0] || 'Parceiro'}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {achievement.is_unlocked && achievement.unlocked_at && viewMode !== 'joint' && (
+                                    <p className="text-xs text-slate-500 mt-2">
                                         Desbloqueada em {new Date(achievement.unlocked_at).toLocaleDateString('pt-BR')}
                                     </p>
                                 )}

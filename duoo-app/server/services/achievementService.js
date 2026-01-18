@@ -58,33 +58,44 @@ class AchievementService {
         const { requirement_type, requirement_value } = achievement;
 
         try {
+            // Buscar usuário para saber do parceiro
+            const user = await User.findByPk(userId);
+            const userIds = [userId];
+            if (user && user.partner_id) {
+                userIds.push(user.partner_id);
+            }
+
             switch (requirement_type) {
                 case 'transaction_count':
+                    // Mantém individual: hábito de uso
                     const transactionCount = await Transaction.count({
                         where: { user_id: userId }
                     });
                     return transactionCount >= requirement_value;
 
                 case 'goal_count':
+                    // Conjunto: Metas do casal
                     const goalCount = await Goal.count({
-                        where: { user_id: userId }
+                        where: { user_id: userIds }
                     });
                     return goalCount >= requirement_value;
 
                 case 'savings_amount':
+                    // Conjunto: Economia do casal
                     const goals = await Goal.findAll({
-                        where: { user_id: userId },
+                        where: { user_id: userIds },
                         attributes: ['current_amount']
                     });
                     const totalSavings = goals.reduce((sum, g) => sum + parseFloat(g.current_amount || 0), 0);
                     return totalSavings >= requirement_value;
 
                 case 'days_streak':
-                    // Verificar dias consecutivos com transações
+                    // Mantém individual: hábito de acesso
                     const streak = await this.calculateStreak(userId);
                     return streak >= requirement_value;
 
                 case 'category_count':
+                    // Mantém individual: diversidade de uso
                     const categories = await Transaction.findAll({
                         where: { user_id: userId },
                         attributes: ['category'],
@@ -93,6 +104,7 @@ class AchievementService {
                     return categories.length >= requirement_value;
 
                 case 'bank_connection':
+                    // Mantém individual, mas discutível. Vamos manter individual por enquanto.
                     const wallets = await Wallet.count({
                         where: {
                             user_id: userId,
@@ -102,13 +114,17 @@ class AchievementService {
                     return wallets >= requirement_value;
 
                 case 'goal_completed':
+                    // Conjunto: Realizações do casal
                     const completedGoals = await Goal.count({
                         where: {
-                            user_id: userId,
+                            user_id: userIds,
                             current_amount: { [Op.gte]: Goal.sequelize.col('target_amount') }
                         }
                     });
                     return completedGoals >= requirement_value;
+
+                case 'partner_linked':
+                    return !!(user && user.partner_id);
 
                 default:
                     return false;

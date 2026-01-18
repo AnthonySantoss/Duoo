@@ -13,13 +13,18 @@ const FALLBACK_DAILY_RATE = 0.00045;
 const getDailyCDIRate = async () => {
     try {
         const response = await axios.get(BCB_API_URL);
-        if (response.data && response.data.length > 0) {
+        if (response.data && response.data.length > 0 && response.data[0].valor) {
             // A API retorna a taxa em porcentagem (ex: "0.050788")
             const taxa = response.data[0].valor;
             // Converter para decimal (0.05% -> 0.0005)
-            const rateDecimal = parseFloat(taxa) / 100;
+            const rateDecimal = parseFloat(taxa.replace(',', '.')) / 100; // Garantir suporte a virgula se houver
+
+            if (isNaN(rateDecimal)) throw new Error('Taxa inválida recebida da API');
+
             console.log(`Taxa CDI obtida do BCB: ${taxa}% (${rateDecimal})`);
             return rateDecimal;
+        } else {
+            throw new Error('API do BCB retornou dados vazios ou incompletos');
         }
     } catch (error) {
         console.error('Erro ao buscar taxa CDI do BCB (usando fallback):', error.message);
@@ -53,7 +58,10 @@ const processDailyYields = async () => {
             // Atualizar o saldo
             const newAmount = currentAmount + yieldAmount;
 
-            // Aqui poderíamos salvar um histórico de transação se houvesse tabela específica
+            // Atualizar acumulado
+            const currentAccumulated = parseFloat(goal.accumulated_yield || 0);
+            goal.accumulated_yield = parseFloat((currentAccumulated + yieldAmount).toFixed(2));
+
             goal.current_amount = parseFloat(newAmount.toFixed(2));
             await goal.save();
 

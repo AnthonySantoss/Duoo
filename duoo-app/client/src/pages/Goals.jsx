@@ -256,6 +256,26 @@ const Goals = () => {
                                     progress={progress}
                                     colorClass={goal.is_joint ? "bg-emerald-500" : progress >= 100 ? "bg-emerald-500" : "bg-blue-500"}
                                 />
+                                {goal.is_yielding && (
+                                    <div className="mt-3 flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/10 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
+                                        <div className="bg-emerald-100 dark:bg-emerald-900/40 p-1.5 rounded-lg shrink-0">
+                                            <TrendingUp size={16} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                                        </div>
+                                        <div className="flex flex-col leading-none">
+                                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                                                Rendeu até hoje
+                                            </span>
+                                            <div className="flex items-baseline gap-1.5">
+                                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                                    + R$ {parseFloat(goal.accumulated_yield || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <span className="text-[10px] font-medium text-emerald-600/70 dark:text-emerald-400/70">
+                                                    ({goal.cdi_percentage}% CDI)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-xs mt-3 text-slate-500">
                                     <span>R$ {parseFloat(goal.current_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     <span>Meta: R$ {parseFloat(goal.target_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

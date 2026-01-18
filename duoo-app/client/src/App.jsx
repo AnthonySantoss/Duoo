@@ -17,10 +17,21 @@ import Statement from './pages/Statement';
 import Investments from './pages/Investments';
 import EconomyForecast from './pages/EconomyForecast';
 
+import { useAuth } from './context/AuthContext';
+
 const ProtectedRoute = ({ children }) => {
-  // Simple check, real app would check AuthContext loading state
-  const token = localStorage.getItem('token');
-  if (!token) return <Navigate to="/login" replace />;
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
   return children;
 };
 
