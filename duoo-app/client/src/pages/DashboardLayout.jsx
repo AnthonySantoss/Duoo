@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAchievements } from '../context/AchievementContext';
+import AchievementModal from '../components/ui/AchievementModal';
+import NotificationDropdown from '../components/ui/NotificationDropdown';
+import TransactionModal from '../components/ui/TransactionModal';
+
 
 const DashboardLayout = () => {
     const { user, partner, hasPartner, logout } = useAuth();
+    const { pendingAchievement, dismissAchievement } = useAchievements();
     const location = useLocation();
     const [viewMode, setViewMode] = useState('joint');
+    const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -22,12 +30,11 @@ const DashboardLayout = () => {
 
     const navItems = [
         { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-        { path: '/dashboard/transactions', icon: <Wallet size={20} />, label: 'Transações' },
-        // { path: '/dashboard/bank', icon: <Building2 size={20} />, label: 'Banco' },
+        { path: '/dashboard/transactions', icon: <ArrowRightLeft size={20} />, label: 'Transações' },
+        { path: '/dashboard/bank', icon: <Building2 size={20} />, label: 'Banco' },
         { path: '/dashboard/goals', icon: <Target size={20} />, label: 'Objetivos' },
         { path: '/dashboard/simulation', icon: <Calculator size={20} />, label: 'Simulador' },
         { path: '/dashboard/forecast', icon: <LineChart size={20} />, label: 'Estatísticas' },
-        // { path: '/dashboard/statement', icon: <FileText size={20} />, label: 'Extrato' },
         { path: '/dashboard/wallets', icon: <Landmark size={20} />, label: 'Carteiras' },
         { path: '/dashboard/investments', icon: <CreditCard size={20} />, label: 'Cartões de Crédito' },
         { path: '/dashboard/economy-forecast', icon: <TrendingUp size={20} />, label: 'Previsão' },
@@ -130,28 +137,47 @@ const DashboardLayout = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
-                <header className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md px-4 md:px-8 py-4 md:py-6 flex items-center justify-between gap-4 border-b md:border-b-0 border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleSidebar}
-                            className="p-2 -ml-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg md:hidden"
-                        >
-                            <Menu size={24} />
-                        </button>
-                        <div>
-                            <h2 className="text-xl md:text-2xl font-bold capitalize truncate max-w-[200px] md:max-w-none">
-                                {navItems.find(i => isActive(i.path))?.label || 'Visão Geral'}
-                            </h2>
-                            {location.pathname === '/dashboard' && (
-                                <p className="text-slate-500 text-xs md:text-sm italic hidden sm:block">
-                                    {hasPartner
-                                        ? `Bem-vindos, ${user?.name || 'Usuário'} & ${partner?.name || 'Parceiro'}!`
-                                        : `Bem-vindo, ${user?.name || 'Usuário'}.`
-                                    }
-                                </p>
-                            )}
+            <main className="flex-1 overflow-y-auto">
+                {/* Header Mobile */}
+                <header className="app-header md:hidden">
+                    <div className="header-top">
+                        <div className="header-user-info">
+                            <div className="header-avatar-container">
+                                <div className="header-avatar">
+                                    {viewMode === 'joint' ? <Users size={18} /> : viewMode === 'user1' ? (user?.name?.charAt(0) || 'A') : (partner?.name?.charAt(0) || 'B')}
+                                </div>
+                                <div className="header-status-indicator"></div>
+                            </div>
+                            <div>
+                                <p className="header-greeting">Olá,</p>
+                                <h2 className="header-username">{viewMode === 'joint' ? `${user?.name?.split(' ')[0]} & ${partner?.name?.split(' ')[0]}` : viewMode === 'user1' ? user?.name : partner?.name}</h2>
+                            </div>
                         </div>
+                        <div className="header-actions">
+                            <button
+                                onClick={() => setViewMode(prev => prev === 'joint' ? 'user1' : prev === 'user1' ? 'user2' : 'joint')}
+                                className="header-action-btn"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                            <NotificationDropdown />
+                        </div>
+                    </div>
+                </header>
+
+                <header className="hidden md:flex sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md px-8 py-6 flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold capitalize">
+                            {navItems.find(i => isActive(i.path))?.label || 'Visão Geral'}
+                        </h2>
+                        {location.pathname === '/dashboard' && (
+                            <p className="text-slate-500 text-sm italic">
+                                {hasPartner
+                                    ? `Bem-vindos, ${user?.name || 'Usuário'} & ${partner?.name || 'Parceiro'}!`
+                                    : `Bem-vindo, ${user?.name || 'Usuário'}.`
+                                }
+                            </p>
+                        )}
                     </div>
 
                     {hasPartner ? (
@@ -175,10 +201,73 @@ const DashboardLayout = () => {
                     )}
                 </header>
 
-                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 md:pb-12 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                <div className="px-6 pb-24 md:px-8 md:pb-12 scrollbar-hide">
                     <Outlet context={{ viewMode }} />
                 </div>
+
+                {/* Bottom Navigation Mobile */}
+                <nav className="bottom-nav md:hidden">
+                    <Link
+                        to="/dashboard"
+                        className={`nav-btn ${isActive('/dashboard') && !isActive('/dashboard/') ? 'active' : ''}`}
+                    >
+                        <LayoutDashboard size={24} strokeWidth={isActive('/dashboard') && !isActive('/dashboard/') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <Link
+                        to="/dashboard/transactions"
+                        className={`nav-btn ${isActive('/dashboard/transactions') ? 'active' : ''}`}
+                    >
+                        <ArrowRightLeft size={24} strokeWidth={isActive('/dashboard/transactions') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <button
+                        className="nav-add-btn group"
+                        onClick={() => setIsTransactionModalOpen(true)}
+                    >
+                        <div className="nav-add-btn-inner">
+                            <PlusCircle size={28} className="nav-add-icon" />
+                        </div>
+                        <div className="nav-add-label">
+                            Lançar
+                        </div>
+                    </button>
+
+                    <Link
+                        to="/dashboard/goals"
+                        className={`nav-btn ${isActive('/dashboard/goals') ? 'active' : ''}`}
+                    >
+                        <Target size={24} strokeWidth={isActive('/dashboard/goals') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <Link
+                        to="/dashboard/menu"
+                        className={`nav-btn ${isActive('/dashboard/menu') ? 'active' : ''}`}
+                    >
+                        <MenuIcon size={24} strokeWidth={isActive('/dashboard/menu') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+                </nav>
             </main>
+
+            {/* Global Achievement Modal */}
+            <AchievementModal
+                achievement={pendingAchievement}
+                onClose={dismissAchievement}
+            />
+
+            {/* Transaction Modal */}
+            <TransactionModal
+                isOpen={isTransactionModalOpen}
+                onClose={() => setIsTransactionModalOpen(false)}
+                onSuccess={() => {
+                    // Refresh data if needed - currently relies on page reload or local updates
+                    // Future improvement: use a global transaction context
+                }}
+            />
         </div>
     );
 };

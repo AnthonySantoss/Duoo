@@ -1,10 +1,12 @@
 const pluggyService = require('../services/pluggyService');
-const { Wallet, Transaction, Goal, CreditCard, CreditCardInvoice, CreditCardPurchase } = require('../models');
+const { Wallet, Transaction, Goal, CreditCard, CreditCardInvoice, CreditCardPurchase, sequelize } = require('../models');
 const { Op } = require('sequelize');
+// Certifique-se que o caminho do seu serviço de categorização está correto:
 const categorizerService = require('../services/transactionCategorizer');
 
 /**
- * Generate connect token for user
+ * 1. GET CONNECT TOKEN
+ * Gera o token para abrir o Widget da Pluggy no Frontend
  */
 const getConnectToken = async (req, res) => {
     try {
@@ -19,7 +21,9 @@ const getConnectToken = async (req, res) => {
 };
 
 /**
- * Sync item data (accounts and transactions)
+ * 2. SYNC ITEM (ESCRITA)
+ * Sincroniza contas, transações, investimentos e cartões.
+ * Correções aplicadas: Paginação total, Upsert (atualização) e fix de saldo de metas.
  */
 const syncItem = async (req, res) => {
     try {
@@ -30,20 +34,24 @@ const syncItem = async (req, res) => {
             return res.status(400).json({ error: 'itemId is required' });
         }
 
-        // Get item details
+        // 1. Obter detalhes do Item e Contas
         const item = await pluggyService.getItem(itemId);
-        console.log('Syncing item:', item);
-
-        // Get all accounts for this item
         const accounts = await pluggyService.getAccounts(itemId);
-        console.log(`Found ${accounts.length} accounts`);
+        console.log(`🔄 Syncing Item: ${item.connector.name} | Found ${accounts.length} accounts`);
 
-        let totalTransactions = 0;
-        let totalGoals = 0;
+        let stats = {
+            transactions: 0,
+            goals: 0,
+            creditCards: 0,
+            invoices: 0
+        };
 
+        // 2. Processar Contas e Transações (Extrato Unificado)
         for (const account of accounts) {
-            // Create or update wallet
-            const [wallet] = await Wallet.findOrCreate({
+
+            // --- A. Criar ou Atualizar Wallet ---
+            // Usamos findOrCreate e depois update para garantir que o saldo esteja sempre fresco
+            const [wallet, created] = await Wallet.findOrCreate({
                 where: {
                     user_id: userId,
                     pluggy_account_id: account.id
@@ -59,195 +67,77 @@ const syncItem = async (req, res) => {
                 }
             });
 
-            // Update balance if wallet exists
-            if (wallet) {
-                await wallet.update({
-                    balance: account.balance || 0,
-                    last_sync: new Date()
-                });
-            }
+            // Atualiza saldo sempre
+            await wallet.update({
+                balance: account.balance || 0,
+                last_sync: new Date()
+            });
 
-            // Get transactions for this account
+            // --- B. Buscar Transações (Com Paginação Automática) ---
             try {
-                const transactions = await pluggyService.getTransactions(account.id, {
-                    pageSize: 200 // Last 200 transactions
-                });
+                // Busca TODAS as páginas disponíveis no último ano
+                const transactions = await fetchAllTransactions(account.id);
+                console.log(`   📄 Conta ${account.name}: ${transactions.length} transações recuperadas.`);
 
-                console.log(`Found ${transactions.length} transactions for account ${account.id}`);
-
-                // Save transactions
                 for (const trans of transactions) {
-                    const amount = trans.amount || 0;
-                    const description = trans.description || 'Transação';
-
-                    // Usar categorizador inteligente
-                    const categorizer = categorizerService.getInstance();
-                    let category = categorizer.categorize(description, trans.category);
-
-                    // Skip investment transactions (they're handled separately)
-                    if (category === 'Investimento') {
-                        console.log(`⏭️  Skipping investment transaction: ${description}`);
-                        continue;
-                    }
-
-                    // Determine type - credit card purchases are always expenses
-                    let type = amount >= 0 ? 'income' : 'expense';
-                    let finalAmount = amount;
-                    let finalCategory = category;
-
-                    // Se a conta é gold (cartão de crédito), todas são despesas
-                    const accountType = account.type?.toLowerCase() || '';
-                    const accountSubtype = account.subtype?.toLowerCase() || '';
-                    const isCreditAccount = accountType.includes('credit') ||
-                        accountSubtype.includes('credit') ||
-                        account.name?.toLowerCase().includes('gold');
-
-                    // Se é "Pagamento recebido" ou "Pagamento de fatura" em conta crédito:
-                    // 1. Processa a fatura (marca como paga)
-                    // 2. Salva como Transferência (para controle, sem impactar Receita)
-                    const isInvoicePayment = description.toLowerCase().includes('pagamento recebido') ||
-                        description.toLowerCase().includes('pagamento de fatura');
-
-                    if (isCreditAccount && isInvoicePayment) {
-                        console.log(`💳 Processando pagamento de fatura: ${description} - R$ ${amount}`);
-
-                        // Marca fatura como paga
-                        try {
-                            const paymentDate = new Date(trans.date);
-                            const month = paymentDate.getMonth() + 1;
-                            const year = paymentDate.getFullYear();
-                            const paymentAmount = Math.abs(amount);
-                            const possibleMonths = [
-                                { month, year },
-                                { month: month - 1 === 0 ? 12 : month - 1, year: month - 1 === 0 ? year - 1 : year }
-                            ];
-
-                            for (const period of possibleMonths) {
-                                const invoices = await CreditCardInvoice.findAll({
-                                    where: {
-                                        month: period.month,
-                                        year: period.year,
-                                        paid: false
-                                    }
-                                });
-
-                                for (const invoice of invoices) {
-                                    if (Math.abs(paymentAmount - parseFloat(invoice.amount)) < 5.0) {
-                                        await invoice.update({ paid: true, paid_date: paymentDate });
-                                        console.log(`✅ Fatura ${period.month}/${period.year} marcada como paga!`);
-                                    }
-                                }
-                            }
-                        } catch (err) {
-                            console.error('Erro no processamento da fatura:', err);
-                        }
-
-                        // Define como Transferência e continua para salvar
-                        finalCategory = 'Transferência';
-                        type = 'transfer'; // Tipo neutro
-                        finalAmount = Math.abs(amount); // Positivo pois entra no cartão
-                    }
-                    // Compras de cartão são SEMPRE despesas (valor negativo)
-                    else if (isCreditAccount || description.toLowerCase().match(/compra\s*(no|em)\s*(debito|d[eé]bito|credito|cr[eé]dito)|pagamento\s*efetuado/i)) {
-                        type = 'expense';
-                        finalAmount = -Math.abs(amount); // Força negativo
-                    }
-                    // Receitas devem ser positivas
-                    else if (category === 'Receita') {
-                        type = 'income';
-                        finalAmount = Math.abs(amount); // Força positivo
-                    }
-                    // Transferências mantém sinal original
-                    else if (category === 'Transferência') {
-                        // Mantém como está
-                    }
-                    // Outras categorias (Alimentação, Transporte, etc) são despesas
-                    else if (category !== 'Outros') {
-                        type = 'expense';
-                        finalAmount = -Math.abs(amount); // Força negativo
-                    }
-
-                    await Transaction.findOrCreate({
-                        where: {
-                            pluggy_transaction_id: trans.id
-                        },
-                        defaults: {
-                            user_id: userId,
-                            wallet_id: wallet.id,
-                            title: description,
-                            amount: finalAmount,
-                            category: finalCategory,
-                            type: type,
-                            date: trans.date || new Date(),
-                            pluggy_transaction_id: trans.id,
-                            pluggy_account_id: account.id
-                        }
-                    });
-
-                    totalTransactions++;
+                    await processTransaction(trans, account, wallet, userId);
+                    stats.transactions++;
                 }
             } catch (error) {
-                console.error(`Failed to sync transactions for account ${account.id}:`, error);
-                // Continue with other accounts even if one fails
+                console.error(`❌ Failed to sync transactions for account ${account.id}:`, error.message);
             }
         }
 
-        // Sync Investments (Caixinhas, etc) as Goals
+        // 3. Processar Investimentos (Goals)
         try {
-            console.log(`🔍 Attempting to fetch investments for item ${itemId}...`);
             const investments = await pluggyService.getInvestments(itemId);
-            console.log(`📊 Found ${investments.length} investments for item ${itemId}`);
-
-            if (investments.length > 0) {
-                console.log('📋 Investment details:', JSON.stringify(investments, null, 2));
-            }
+            console.log(`📊 Found ${investments.length} investments`);
 
             for (const investment of investments) {
-                // Map investment to Goal
                 const goalName = investment.name || investment.code || 'Investimento';
                 const goalAmount = investment.balance || investment.amount || 0;
                 const goalType = detectGoalType(goalName);
 
-                console.log(`💰 Creating goal: ${goalName} - R$ ${goalAmount}`);
-
-                await Goal.findOrCreate({
+                // CORREÇÃO: Atualizar saldo se já existir
+                const [goal, created] = await Goal.findOrCreate({
                     where: {
                         user_id: userId,
                         pluggy_investment_id: investment.id
                     },
                     defaults: {
                         user_id: userId,
-                        title: goalName,  // Usar 'title' ao invés de 'name'
+                        title: goalName,
                         target_amount: goalAmount * 1.5,
                         current_amount: goalAmount,
                         deadline: calculateDeadline(investment),
                         category: goalType,
-                        pluggy_investment_id: investment.id,
-                        pluggy_item_id: itemId
+                        pluggy_item_id: itemId,
+                        pluggy_investment_id: investment.id
                     }
                 });
 
-                totalGoals++;
-                console.log(`✅ Goal created successfully`);
+                // Se já existia, atualiza o saldo atual
+                if (!created) {
+                    await goal.update({
+                        current_amount: goalAmount,
+                        // last_sync: new Date() // Descomente se tiver essa coluna em Goal
+                    });
+                }
+                stats.goals++;
             }
         } catch (error) {
-            console.error('❌ Failed to sync investments:', error.message);
-            console.error('Full error:', error);
-            // Investments might not be available for all connectors
+            // Alguns conectores não suportam investimentos, então é um aviso, não erro crítico
+            console.warn('⚠️ Investments sync skipped or failed (might not be available):', error.message);
         }
 
-        // Sync Credit Cards and Invoices
-        const { CreditCard, CreditCardInvoice, CreditCardPurchase } = require('../models');
-        let totalCreditCards = 0;
-        let totalInvoices = 0;
-
+        // 4. Processar Cartões de Crédito e Faturas (Detalhamento)
+        // Isso roda separado para popular as tabelas específicas de CreditCardInvoice/Purchase
         try {
             const creditCards = await pluggyService.getCreditCards(itemId);
-            console.log(`Found ${creditCards.length} credit cards for item ${itemId}`);
 
             for (const card of creditCards) {
                 // Create or update credit card
-                const [creditCard] = await CreditCard.findOrCreate({
+                const [creditCard, created] = await CreditCard.findOrCreate({
                     where: {
                         user_id: userId,
                         pluggy_account_id: card.id
@@ -265,144 +155,118 @@ const syncItem = async (req, res) => {
                     }
                 });
 
-                // Update if exists
-                if (creditCard) {
-                    await creditCard.update({
-                        limit: card.creditLimit || creditCard.limit,
-                        last_sync: new Date()
-                    });
-                }
+                // Sempre atualizar limite
+                await creditCard.update({
+                    limit: card.creditLimit || creditCard.limit,
+                    last_sync: new Date()
+                });
 
-                totalCreditCards++;
+                stats.creditCards++;
 
-                // Get credit card transactions
-                try {
-                    const transactions = await pluggyService.getCreditCardTransactions(card.id, {
-                        pageSize: 200
-                    });
-
-                    console.log(`Found ${transactions.length} credit card transactions`);
-
-                    // Group transactions by month/year to create invoices
-                    const invoiceMap = {};
-
-                    for (const trans of transactions) {
-                        const transDate = new Date(trans.date);
-                        const month = transDate.getMonth() + 1;
-                        const year = transDate.getFullYear();
-                        const key = `${year}-${month}`;
-
-                        if (!invoiceMap[key]) {
-                            invoiceMap[key] = {
-                                month,
-                                year,
-                                amount: 0,
-                                transactions: []
-                            };
-                        }
-
-                        invoiceMap[key].amount += Math.abs(trans.amount || 0);
-                        invoiceMap[key].transactions.push(trans);
-                    }
-
-                    // Create/update invoices
-                    for (const [key, invoiceData] of Object.entries(invoiceMap)) {
-                        const dueDate = new Date(invoiceData.year, invoiceData.month - 1, creditCard.due_day);
-
-                        const [invoice] = await CreditCardInvoice.findOrCreate({
-                            where: {
-                                credit_card_id: creditCard.id,
-                                month: invoiceData.month,
-                                year: invoiceData.year
-                            },
-                            defaults: {
-                                credit_card_id: creditCard.id,
-                                month: invoiceData.month,
-                                year: invoiceData.year,
-                                amount: invoiceData.amount,
-                                due_date: dueDate,
-                                paid: false
-                            }
-                        });
-
-                        // Update amount if invoice exists
-                        if (invoice) {
-                            await invoice.update({
-                                amount: invoiceData.amount
-                            });
-                        }
-
-                        totalInvoices++;
-
-                        // Save purchases
-                        for (const trans of invoiceData.transactions) {
-                            const transAmount = Math.abs(trans.amount || 0);
-
-                            await CreditCardPurchase.findOrCreate({
-                                where: {
-                                    credit_card_id: creditCard.id,
-                                    description: trans.description || 'Compra',
-                                    purchase_date: trans.date
-                                },
-                                defaults: {
-                                    credit_card_id: creditCard.id,
-                                    description: trans.description || 'Compra',
-                                    total_amount: transAmount,
-                                    installments: trans.installments || 1,
-                                    installment_amount: transAmount / (trans.installments || 1),
-                                    remaining_installments: trans.installments || 1,
-                                    purchase_date: trans.date
-                                }
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Failed to sync credit card transactions:`, error);
-                }
+                // Processar Faturas e Compras do Cartão
+                await processCreditCardInvoices(card, creditCard);
+                stats.invoices++;
             }
         } catch (error) {
-            console.error('Failed to sync credit cards:', error);
+            console.error('❌ Failed to sync credit card details:', error.message);
         }
 
         res.json({
             success: true,
-            message: `Sincronizado com sucesso! ${accounts.length} conta(s), ${totalTransactions} transação(ões), ${totalGoals} objetivo(s), ${totalCreditCards} cartão(ões) e ${totalInvoices} fatura(s).`,
-            accountsCount: accounts.length,
-            transactionsCount: totalTransactions,
-            goalsCount: totalGoals,
-            creditCardsCount: totalCreditCards,
-            invoicesCount: totalInvoices
+            message: `Sincronização concluída!`,
+            stats
         });
 
     } catch (error) {
-        console.error('Failed to sync item:', error);
+        console.error('❌ Critical error in syncItem:', error);
         res.status(500).json({ error: 'Failed to sync item data' });
     }
 };
 
 /**
- * Get user's connected items
+ * 3. GET TRANSACTIONS (LEITURA)
+ * Lista as transações para o Frontend com filtros e paginação.
+ * Isso resolve o problema da tela vazia.
+ */
+const getTransactions = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const {
+            page = 1,
+            limit = 20,
+            month,
+            year,
+            search,
+            type,
+            walletId
+        } = req.query;
+
+        const offset = (page - 1) * limit;
+
+        const whereClause = {
+            user_id: userId
+        };
+
+        // Filtro de Data
+        if (month && year) {
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0, 23, 59, 59);
+            whereClause.date = { [Op.between]: [startDate, endDate] };
+        }
+
+        // Filtro de Busca
+        if (search) {
+            whereClause.title = { [Op.iLike]: `%${search}%` };
+        }
+
+        // Filtro por Tipo
+        if (type) whereClause.type = type;
+
+        // Filtro por Carteira
+        if (walletId) whereClause.wallet_id = walletId;
+
+        const { count, rows } = await Transaction.findAndCountAll({
+            where: whereClause,
+            include: [{
+                model: Wallet,
+                as: 'wallet',
+                attributes: ['id', 'name', 'bank_name', 'type']
+            }],
+            order: [['date', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+
+        res.json({
+            transactions: rows,
+            meta: {
+                total: count,
+                page: parseInt(page),
+                totalPages: Math.ceil(count / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro ao listar transações:', error);
+        res.status(500).json({ error: 'Erro interno ao buscar transações' });
+    }
+};
+
+/**
+ * 4. GET CONNECTED ITEMS
+ * Lista os bancos conectados para mostrar na tela de "Contas".
  */
 const getConnectedItems = async (req, res) => {
     try {
         const userId = req.user.id;
-
-        const { Op } = require('sequelize');
 
         const wallets = await Wallet.findAll({
             where: {
                 user_id: userId,
                 pluggy_item_id: { [Op.ne]: null }
             },
-            attributes: ['id', 'name', 'bank_name', 'balance', 'last_sync', 'pluggy_item_id', 'pluggy_account_id'],
+            attributes: ['id', 'name', 'bank_name', 'balance', 'last_sync', 'pluggy_item_id', 'pluggy_account_id', 'type'],
             order: [['last_sync', 'DESC']]
-        });
-
-        console.log(`[getConnectedItems] User ${userId} has ${wallets.length} connected wallets`);
-
-        // Log each wallet for debugging
-        wallets.forEach(wallet => {
-            console.log(`  - ${wallet.bank_name} (${wallet.name}): R$ ${wallet.balance} - Last sync: ${wallet.last_sync}`);
         });
 
         res.json(wallets);
@@ -413,7 +277,8 @@ const getConnectedItems = async (req, res) => {
 };
 
 /**
- * Disconnect item (delete from Pluggy and remove from database)
+ * 5. DISCONNECT ITEM
+ * Remove a conexão da Pluggy e limpa os dados locais.
  */
 const disconnectItem = async (req, res) => {
     try {
@@ -432,12 +297,7 @@ const disconnectItem = async (req, res) => {
         });
 
         for (const wallet of wallets) {
-            // Delete transactions
-            await Transaction.destroy({
-                where: { wallet_id: wallet.id }
-            });
-
-            // Delete wallet
+            await Transaction.destroy({ where: { wallet_id: wallet.id } });
             await wallet.destroy();
         }
 
@@ -449,30 +309,12 @@ const disconnectItem = async (req, res) => {
 };
 
 /**
- * Webhook handler for Pluggy events
+ * 6. WEBHOOK HANDLER
  */
 const handleWebhook = async (req, res) => {
     try {
         const event = req.body;
-        console.log('Pluggy webhook received:', event);
-
-        // Handle different event types
-        switch (event.event) {
-            case 'item/updated':
-            case 'item/login':
-                // Re-sync item data
-                // You can trigger background sync here
-                console.log('Item updated, consider re-syncing:', event.data.itemId);
-                break;
-
-            case 'item/error':
-                console.error('Item error:', event.data);
-                break;
-
-            default:
-                console.log('Unhandled webhook event:', event.event);
-        }
-
+        console.log('Pluggy webhook received:', event.event);
         res.status(200).json({ received: true });
     } catch (error) {
         console.error('Webhook error:', error);
@@ -480,9 +322,248 @@ const handleWebhook = async (req, res) => {
     }
 };
 
+
+// =======================================================
+// HELPER FUNCTIONS (AUXILIARES INTERNAS)
+// =======================================================
+
 /**
- * Map Pluggy account type to our wallet type
+ * Busca TODAS as páginas de transações da Pluggy (Paginação)
  */
+async function fetchAllTransactions(accountId) {
+    let allResults = [];
+    let page = 1;
+    let totalPages = 1;
+
+    // Configura filtro de data: últimos 12 meses
+    const fromDate = new Date();
+    fromDate.setFullYear(fromDate.getFullYear() - 1);
+    const fromString = fromDate.toISOString().split('T')[0];
+
+    try {
+        do {
+            const response = await pluggyService.getTransactions(accountId, {
+                from: fromString,
+                pageSize: 500,
+                page: page
+            });
+
+            if (response.results && response.results.length > 0) {
+                allResults = allResults.concat(response.results);
+            }
+
+            totalPages = response.totalPages || 0;
+            page++;
+        } while (page <= totalPages);
+
+    } catch (error) {
+        console.error(`Error fetching pages for account ${accountId}:`, error.message);
+    }
+
+    return allResults;
+}
+
+/**
+ * Processa uma única transação: Categoriza e faz Upsert
+ */
+async function processTransaction(trans, account, wallet, userId) {
+    const amount = trans.amount || 0;
+    const description = trans.description || 'Transação';
+
+    // 1. Categorização
+    const categorizer = categorizerService.getInstance();
+    let category = categorizer.categorize(description, trans.category);
+
+    // Pular transações de investimento no feed principal
+    if (category === 'Investimento') return;
+
+    // 2. Definição de Tipo e Valor
+    let type = amount >= 0 ? 'income' : 'expense';
+    let finalAmount = amount;
+    let finalCategory = category;
+
+    const accountType = account.type?.toLowerCase() || '';
+    const accountSubtype = account.subtype?.toLowerCase() || '';
+    const isCreditAccount = accountType.includes('credit') || accountSubtype.includes('credit') || account.name?.toLowerCase().includes('gold');
+
+    // Lógica Específica: Pagamento de Fatura
+    const isInvoicePayment = description.toLowerCase().includes('pagamento recebido') ||
+        description.toLowerCase().includes('pagamento de fatura');
+
+    if (isCreditAccount && isInvoicePayment) {
+        // Tenta marcar a fatura como paga
+        await handleInvoicePayment(trans, amount);
+
+        // Define como Transferência (Entrada no cartão, saída da conta)
+        finalCategory = 'Transferência';
+        type = 'transfer';
+        finalAmount = Math.abs(amount);
+    }
+    // Lógica Específica: Compras no Crédito (sempre despesa)
+    else if (isCreditAccount || description.toLowerCase().match(/compra\s*(no|em)\s*(debito|d[eé]bito|credito|cr[eé]dito)|pagamento\s*efetuado/i)) {
+        type = 'expense';
+        finalAmount = -Math.abs(amount);
+    }
+    else if (category === 'Receita') {
+        type = 'income';
+        finalAmount = Math.abs(amount);
+    }
+    else if (category === 'Transferência') {
+        // Mantém sinal original
+    }
+    else if (category !== 'Outros') {
+        type = 'expense';
+        finalAmount = -Math.abs(amount);
+    }
+
+    // 3. Salvar (Upsert)
+    // Usa findOrCreate + update para garantir atualização de dados antigos
+    const [transaction, created] = await Transaction.findOrCreate({
+        where: { pluggy_transaction_id: trans.id },
+        defaults: {
+            user_id: userId,
+            wallet_id: wallet.id,
+            title: description,
+            amount: finalAmount,
+            category: finalCategory,
+            type: type,
+            date: trans.date || new Date(),
+            pluggy_transaction_id: trans.id,
+            pluggy_account_id: account.id,
+            status: trans.status || 'COMPLETED'
+        }
+    });
+
+    if (!created) {
+        await transaction.update({
+            title: description,
+            amount: finalAmount,
+            category: finalCategory,
+            type: type,
+            date: trans.date,
+            status: trans.status || 'COMPLETED'
+        });
+    }
+}
+
+/**
+ * Marca faturas como pagas baseado no valor do pagamento
+ */
+async function handleInvoicePayment(trans, amount) {
+    try {
+        const paymentDate = new Date(trans.date);
+        const month = paymentDate.getMonth() + 1;
+        const year = paymentDate.getFullYear();
+        const paymentAmount = Math.abs(amount);
+
+        const possibleMonths = [
+            { month, year },
+            { month: month - 1 === 0 ? 12 : month - 1, year: month - 1 === 0 ? year - 1 : year }
+        ];
+
+        for (const period of possibleMonths) {
+            const invoices = await CreditCardInvoice.findAll({
+                where: {
+                    month: period.month,
+                    year: period.year,
+                    paid: false
+                }
+            });
+
+            for (const invoice of invoices) {
+                // Margem de erro de R$ 5,00
+                if (Math.abs(paymentAmount - parseFloat(invoice.amount)) < 5.0) {
+                    await invoice.update({ paid: true, paid_date: paymentDate });
+                    console.log(`✅ Fatura ${period.month}/${period.year} marcada como paga!`);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Erro ao processar pagamento de fatura:', err.message);
+    }
+}
+
+/**
+ * Processa Faturas e Compras (Para as tabelas CreditCard*)
+ */
+async function processCreditCardInvoices(card, creditCard) {
+    try {
+        const transactions = await pluggyService.getCreditCardTransactions(card.id, {
+            pageSize: 500,
+            from: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0]
+        });
+
+        // Agrupar transações por Mês/Ano
+        const invoiceMap = {};
+
+        for (const trans of transactions) {
+            const transDate = new Date(trans.date);
+            const month = transDate.getMonth() + 1;
+            const year = transDate.getFullYear();
+            const key = `${year}-${month}`;
+
+            if (!invoiceMap[key]) {
+                invoiceMap[key] = { month, year, amount: 0, transactions: [] };
+            }
+
+            invoiceMap[key].amount += Math.abs(trans.amount || 0);
+            invoiceMap[key].transactions.push(trans);
+        }
+
+        // Criar/Atualizar Faturas
+        for (const [key, invoiceData] of Object.entries(invoiceMap)) {
+            const dueDate = new Date(invoiceData.year, invoiceData.month - 1, creditCard.due_day);
+
+            const [invoice] = await CreditCardInvoice.findOrCreate({
+                where: {
+                    credit_card_id: creditCard.id,
+                    month: invoiceData.month,
+                    year: invoiceData.year
+                },
+                defaults: {
+                    amount: invoiceData.amount,
+                    due_date: dueDate,
+                    paid: false
+                }
+            });
+
+            // Atualiza valor da fatura sempre
+            await invoice.update({ amount: invoiceData.amount });
+
+            // Salvar compras (Purchase)
+            for (const trans of invoiceData.transactions) {
+                const transAmount = Math.abs(trans.amount || 0);
+                const installments = trans.paymentData?.installments || 1;
+
+                await CreditCardPurchase.findOrCreate({
+                    where: {
+                        credit_card_id: creditCard.id,
+                        description: trans.description || 'Compra',
+                        purchase_date: trans.date,
+                        total_amount: transAmount
+                    },
+                    defaults: {
+                        category: trans.category,
+                        installments: installments,
+                        installment_amount: transAmount / installments,
+                        remaining_installments: installments,
+                        credit_card_id: creditCard.id,
+                        description: trans.description,
+                        purchase_date: trans.date,
+                        total_amount: transAmount
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error(`Error processing credit card invoices for card ${card.id}:`, error.message);
+    }
+}
+
+// =======================================================
+// HELPERS PUROS
+// =======================================================
+
 function mapAccountType(pluggyType) {
     const typeMap = {
         'CHECKING_ACCOUNT': 'Conta Corrente',
@@ -491,126 +572,37 @@ function mapAccountType(pluggyType) {
         'INVESTMENT': 'Investimento',
         'LOAN': 'Empréstimo'
     };
-
     return typeMap[pluggyType] || 'Outra';
 }
 
-/**
- * Map transaction description to category with Pluggy support
- */
-function mapCategory(description, pluggyCategory) {
-    if (!description) return 'Outros';
-
-    // Try Pluggy category first
-    if (pluggyCategory) {
-        const categoryMap = {
-            'Food and Drink': 'Alimentação',
-            'Shopping': 'Compras',
-            'Entertainment': 'Lazer',
-            'Transportation': 'Transporte',
-            'Healthcare': 'Saúde',
-            'Bills and Utilities': 'Contas',
-            'Home': 'Moradia',
-            'Education': 'Educação',
-            'Transfer': 'Transferência',
-            'Income': 'Receita',
-            'Investment': 'Investimento'
-        };
-
-        if (categoryMap[pluggyCategory]) {
-            return categoryMap[pluggyCategory];
-        }
-    }
-
-    if (!description) return 'Outros';
-    const desc = description.toLowerCase();
-
-    // Investimentos (aplicação, resgate, RDB, CDB, etc) - PRIORIDADE
-    if (desc.match(/aplicacao|aplica[cç][aã]o|resgate|rdb|cdb|lci|lca|tesouro|fundo|cdi|poupanca|poupan[cç]a|investimento|renda\s*fixa|corretora|xp|btg|rico|nuinvest/i)) {
-        return 'Investimento';
-    }
-
-    // PIX e Transferências - MELHORADO (evitar falsos positivos)
-    if (desc.match(/^pix|^transf|^ted|^doc|transfer[eê]ncia|valor\s*adicionado/i) && !desc.match(/uber|99|raizen|shell|ipiranga/i)) {
-        return 'Transferência';
-    }
-
-    // Receitas
-    if (desc.match(/salario|sal[aá]rio|pagamento\s*recebido|rendimento|dividendo|cashback|estorno|reembolso/i)) return 'Receita';
-
-    // Alimentação - MUITO MELHORADO
-    if (desc.match(/mercado|supermercado|padaria|a[cç]ougue|feira|restaurante|lanchonete|pizzaria|hamburgu|mc\s*donald|burger|bk\s|bk$|\sbk\s|filial\s*bk|ifood|rappi|uber\s*eats|99\s*food|sushi|bar\s+|cafe\s+|cafeteria|starbucks|pao\s*de\s*acucar|carrefour|extra|walmart|atacadao|barreto|anchietao|compreaki|dogao|sorvete|lanches|pizz|hambur/i)) return 'Alimentação';
-
-    // Transporte - EXPANDIDO
-    if (desc.match(/uber|99|cabify|taxi|onibus|metro|trem|estacionamento|combustivel|gasolina|etanol|posto|shell|ipiranga|ped[aá]gio|multa|detran|ipva|seguro\s*auto|carro/i)) return 'Transporte';
-
-    // Lazer - EXPANDIDO
-    if (desc.match(/cinema|teatro|show|netflix|spotify|amazon\s*prime|disney|hbo|youtube|game|playstation|xbox|parque|festa|livro|livraria/i)) return 'Lazer';
-
-    // Moradia - EXPANDIDO
-    if (desc.match(/aluguel|condominio|iptu|energia|luz|[aá]gua|esgoto|gas|limpeza|reparo|reforma|m[oó]vel|eletrodom[eé]stico/i)) return 'Moradia';
-
-    // Saúde - EXPANDIDO
-    if (desc.match(/farm[aá]cia|drogaria|medicamento|hospital|cl[íi]nica|m[eé]dico|doutor|exame|consulta|dentista|psic|fisio|plano\s*sa[uú]de|unimed|amil/i)) return 'Saúde';
-
-    // Contas - com exclusões
-    if (desc.match(/fatura|cart[aã]o\s*cr[eé]dito|anuidade|boleto|telefone|vivo|tim|claro|seguro|taxa/i) && !desc.match(/mercado|restaurante|farmacia/i)) return 'Contas';
-
-    // Educação
-    if (desc.match(/escola|faculdade|curso|apostila|mensalidade\s*escolar/i)) return 'Educação';
-
-    return 'Outros';
-}
-
-/**
- * Detect goal type from investment name
- */
 function detectGoalType(name) {
     if (!name) return 'Outros';
-
-    const nameLower = name.toLowerCase();
-
-    if (nameLower.includes('casa') || nameLower.includes('imovel') || nameLower.includes('imóvel')) {
-        return 'Casa';
-    }
-    if (nameLower.includes('carro') || nameLower.includes('veículo') || nameLower.includes('veiculo')) {
-        return 'Carro';
-    }
-    if (nameLower.includes('viagem') || nameLower.includes('férias') || nameLower.includes('ferias')) {
-        return 'Viagem';
-    }
-    if (nameLower.includes('emergência') || nameLower.includes('emergencia') || nameLower.includes('reserva')) {
-        return 'Reserva de Emergência';
-    }
-    if (nameLower.includes('estudo') || nameLower.includes('educação') || nameLower.includes('educacao') || nameLower.includes('curso')) {
-        return 'Educação';
-    }
-    if (nameLower.includes('casamento') || nameLower.includes('festa')) {
-        return 'Casamento';
-    }
-
+    const n = name.toLowerCase();
+    if (n.includes('casa') || n.includes('imovel')) return 'Casa';
+    if (n.includes('carro') || n.includes('veiculo')) return 'Carro';
+    if (n.includes('viagem') || n.includes('ferias')) return 'Viagem';
+    if (n.includes('reserva') || n.includes('emergencia')) return 'Reserva de Emergência';
+    if (n.includes('estudo') || n.includes('curso') || n.includes('educacao')) return 'Educação';
+    if (n.includes('casamento')) return 'Casamento';
     return 'Outros';
 }
 
-/**
- * Calculate deadline for investment/goal
- */
 function calculateDeadline(investment) {
-    // If investment has a maturity date, use it
-    if (investment.maturityDate) {
-        return investment.maturityDate;
-    }
-
-    // Otherwise, set deadline to 1 year from now
-    const deadline = new Date();
-    deadline.setFullYear(deadline.getFullYear() + 1);
-    return deadline;
+    if (investment.maturityDate) return investment.maturityDate;
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return d;
 }
+
+// =======================================================
+// EXPORTS
+// =======================================================
 
 module.exports = {
     getConnectToken,
     syncItem,
-    getConnectedItems,
-    disconnectItem,
+    getTransactions,    // Endpoint novo de leitura
+    getConnectedItems,  // Endpoint novo de leitura
+    disconnectItem,     // Endpoint novo de remoção
     handleWebhook
 };

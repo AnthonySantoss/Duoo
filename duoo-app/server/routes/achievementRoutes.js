@@ -21,4 +21,10 @@ router.get('/new', achievementController.getNewAchievements);
 // Estatísticas do usuário
 router.get('/stats', achievementController.getUserStats);
 
+// Buscar conquistas do usuário
+router.get('/user', achievementController.getUserAchievements);
+
+// Marcar conquista como notificada
+router.post('/:id/notify', achievementController.markAsNotified);
+
 module.exports = router;

@@ -16,6 +16,7 @@ const pluggyRoutes = require('./routes/pluggyRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const achievementRoutes = require('./routes/achievementRoutes');
 const alertRoutes = require('./routes/alertRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/pluggy', pluggyRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');

@@ -60,10 +60,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        console.log('[AuthContext] Logging out...');
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
         setPartner(null);
         setHasPartner(false);
+        // Force redirect to login
+        window.location.href = '/login';
     };
 
     return (
