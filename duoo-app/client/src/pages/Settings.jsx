@@ -196,7 +196,7 @@ const Settings = () => {
     };
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 pb-24 md:pb-12">
             {toast && (
                 <Toast
                     message={toast.message}
@@ -220,17 +220,17 @@ const Settings = () => {
 
             {/* Perfil */}
             <Card className="space-y-6">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-2xl font-bold text-white uppercase shadow-lg">
                         {user?.name ? user.name[0] : 'U'}
                     </div>
                     <div className="flex-1">
                         <h4 className="font-bold text-lg text-slate-900 dark:text-white">{user?.name || 'Usuário'}</h4>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">{user?.email}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm break-all">{user?.email}</p>
                     </div>
                     <button
                         onClick={() => setEditProfileOpen(true)}
-                        className="px-4 py-2 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg text-sm font-medium transition-colors"
+                        className="w-full md:w-auto px-4 py-2 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg text-sm font-medium transition-colors"
                     >
                         Editar Perfil
                     </button>

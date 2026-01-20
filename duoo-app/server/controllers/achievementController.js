@@ -152,4 +152,64 @@ exports.getNewAchievements = async (req, res) => {
     }
 };
 
+/**
+ * Retorna todas as conquistas do usuário com status
+ */
+exports.getUserAchievements = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const userAchievements = await UserAchievement.findAll({
+            where: { user_id: userId },
+            include: [{
+                model: Achievement,
+                where: { is_active: true }
+            }],
+            order: [[Achievement, 'points', 'ASC']]
+        });
+
+        const result = userAchievements.map(ua => ({
+            id: ua.Achievement.id,
+            code: ua.Achievement.code,
+            title: ua.Achievement.title,
+            description: ua.Achievement.description,
+            icon: ua.Achievement.icon,
+            points: ua.Achievement.points,
+            unlocked: !!ua.unlocked_at,
+            unlocked_at: ua.unlocked_at,
+            notified: !ua.is_new
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error getting user achievements:', error);
+        res.status(500).json({ error: 'Failed to get user achievements' });
+    }
+};
+
+/**
+ * Marca uma conquista como notificada
+ */
+exports.markAsNotified = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const achievementId = req.params.id;
+
+        await UserAchievement.update(
+            { is_new: false },
+            {
+                where: {
+                    user_id: userId,
+                    achievement_id: achievementId
+                }
+            }
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking achievement as notified:', error);
+        res.status(500).json({ error: 'Failed to mark achievement as notified' });
+    }
+};
+
 module.exports = exports;

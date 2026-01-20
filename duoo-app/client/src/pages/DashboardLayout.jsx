@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAchievements } from '../context/AchievementContext';
+import AchievementModal from '../components/ui/AchievementModal';
+import NotificationDropdown from '../components/ui/NotificationDropdown';
+import TransactionModal from '../components/ui/TransactionModal';
+
 
 const DashboardLayout = () => {
     const { user, partner, hasPartner, logout } = useAuth();
+    const { pendingAchievement, dismissAchievement } = useAchievements();
     const location = useLocation();
     const [viewMode, setViewMode] = useState('joint');
+    const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+
 
     const isActive = (path) => {
         if (path === '/dashboard') {
@@ -17,7 +25,7 @@ const DashboardLayout = () => {
 
     const navItems = [
         { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-        { path: '/dashboard/transactions', icon: <Wallet size={20} />, label: 'Transações' },
+        { path: '/dashboard/transactions', icon: <ArrowRightLeft size={20} />, label: 'Transações' },
         { path: '/dashboard/bank', icon: <Building2 size={20} />, label: 'Banco' },
         { path: '/dashboard/goals', icon: <Target size={20} />, label: 'Objetivos' },
         { path: '/dashboard/simulation', icon: <Calculator size={20} />, label: 'Simulador' },
@@ -91,7 +99,34 @@ const DashboardLayout = () => {
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto">
-                <header className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Header Mobile */}
+                <header className="app-header md:hidden">
+                    <div className="header-top">
+                        <div className="header-user-info">
+                            <div className="header-avatar-container">
+                                <div className="header-avatar">
+                                    {viewMode === 'joint' ? <Users size={18} /> : viewMode === 'user1' ? (user?.name?.charAt(0) || 'A') : (partner?.name?.charAt(0) || 'B')}
+                                </div>
+                                <div className="header-status-indicator"></div>
+                            </div>
+                            <div>
+                                <p className="header-greeting">Olá,</p>
+                                <h2 className="header-username">{viewMode === 'joint' ? `${user?.name?.split(' ')[0]} & ${partner?.name?.split(' ')[0]}` : viewMode === 'user1' ? user?.name : partner?.name}</h2>
+                            </div>
+                        </div>
+                        <div className="header-actions">
+                            <button
+                                onClick={() => setViewMode(prev => prev === 'joint' ? 'user1' : prev === 'user1' ? 'user2' : 'joint')}
+                                className="header-action-btn"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                            <NotificationDropdown />
+                        </div>
+                    </div>
+                </header>
+
+                <header className="hidden md:flex sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md px-8 py-6 flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-bold capitalize">
                             {navItems.find(i => isActive(i.path))?.label || 'Visão Geral'}
@@ -127,10 +162,73 @@ const DashboardLayout = () => {
                     )}
                 </header>
 
-                <div className="px-8 pb-12">
+                <div className="px-6 pb-24 md:px-8 md:pb-12 scrollbar-hide">
                     <Outlet context={{ viewMode }} />
                 </div>
+
+                {/* Bottom Navigation Mobile */}
+                <nav className="bottom-nav md:hidden">
+                    <Link
+                        to="/dashboard"
+                        className={`nav-btn ${isActive('/dashboard') && !isActive('/dashboard/') ? 'active' : ''}`}
+                    >
+                        <LayoutDashboard size={24} strokeWidth={isActive('/dashboard') && !isActive('/dashboard/') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <Link
+                        to="/dashboard/transactions"
+                        className={`nav-btn ${isActive('/dashboard/transactions') ? 'active' : ''}`}
+                    >
+                        <ArrowRightLeft size={24} strokeWidth={isActive('/dashboard/transactions') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <button
+                        className="nav-add-btn group"
+                        onClick={() => setIsTransactionModalOpen(true)}
+                    >
+                        <div className="nav-add-btn-inner">
+                            <PlusCircle size={28} className="nav-add-icon" />
+                        </div>
+                        <div className="nav-add-label">
+                            Lançar
+                        </div>
+                    </button>
+
+                    <Link
+                        to="/dashboard/goals"
+                        className={`nav-btn ${isActive('/dashboard/goals') ? 'active' : ''}`}
+                    >
+                        <Target size={24} strokeWidth={isActive('/dashboard/goals') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+
+                    <Link
+                        to="/dashboard/menu"
+                        className={`nav-btn ${isActive('/dashboard/menu') ? 'active' : ''}`}
+                    >
+                        <MenuIcon size={24} strokeWidth={isActive('/dashboard/menu') ? 2.5 : 2} />
+                        <span className="nav-btn-indicator"></span>
+                    </Link>
+                </nav>
             </main>
+
+            {/* Global Achievement Modal */}
+            <AchievementModal
+                achievement={pendingAchievement}
+                onClose={dismissAchievement}
+            />
+
+            {/* Transaction Modal */}
+            <TransactionModal
+                isOpen={isTransactionModalOpen}
+                onClose={() => setIsTransactionModalOpen(false)}
+                onSuccess={() => {
+                    // Refresh data if needed - currently relies on page reload or local updates
+                    // Future improvement: use a global transaction context
+                }}
+            />
         </div>
     );
 };

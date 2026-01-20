@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, Filter, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, Wallet, Trash2, Edit, X, Calendar, DollarSign, Tag } from 'lucide-react';
+import { Search, Filter, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, Wallet, Trash2, Edit, X, Calendar, DollarSign, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -13,7 +13,9 @@ const Transactions = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [transactions, setTransactions] = useState([]);
-    const [allTransactions, setAllTransactions] = useState([]); // Para filtros locais
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState(null);
@@ -49,20 +51,48 @@ const Transactions = () => {
     });
 
     useEffect(() => {
-        fetchTransactions();
+        const delayDebounceFn = setTimeout(() => {
+            fetchTransactions();
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [viewMode, page, searchTerm, filters]);
+
+    useEffect(() => {
         fetchWallets();
-    }, [viewMode]);
+    }, []);
+
+    // Resetar para página 1 quando filtros mudam
+    useEffect(() => {
+        setPage(1);
+    }, [viewMode, searchTerm, filters]);
 
     const fetchTransactions = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/transactions', {
-                params: { viewMode }
-            });
-            setAllTransactions(res.data);
-            setTransactions(res.data);
+            const params = {
+                viewMode,
+                page,
+                limit: 10,
+                search: searchTerm,
+                ...filters
+            };
+
+            const res = await api.get('/transactions', { params });
+
+            // Backend agora retorna { transactions, totalPages, totalItems, currentPage }
+            if (res.data.transactions) {
+                setTransactions(res.data.transactions);
+                setTotalPages(res.data.totalPages);
+                setTotalItems(res.data.totalItems);
+            } else {
+                // Fallback para formato antigo caso backend não tenha atualizado
+                setTransactions(res.data);
+            }
+
         } catch (error) {
             console.error('Failed to fetch transactions:', error);
+            setToast({ message: 'Erro ao carregar transações', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -80,80 +110,6 @@ const Transactions = () => {
         }
     };
 
-    // Busca em tempo real + Filtros avançados
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            applyFilters();
-        }, 300);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm, filters, allTransactions]);
-
-    const applyFilters = () => {
-        let filtered = [...allTransactions];
-
-        // Filtro de busca por texto
-        if (searchTerm) {
-            const search = searchTerm.toLowerCase();
-            filtered = filtered.filter(t =>
-                t.title.toLowerCase().includes(search) ||
-                t.category.toLowerCase().includes(search) ||
-                t.Wallet?.name.toLowerCase().includes(search)
-            );
-        }
-
-        // Filtro por ano
-        if (filters.year !== 'all') {
-            filtered = filtered.filter(t => {
-                const year = new Date(t.date).getFullYear();
-                return year.toString() === filters.year;
-            });
-        }
-
-        // Filtro por categoria
-        if (filters.category !== 'all') {
-            filtered = filtered.filter(t => t.category === filters.category);
-        }
-
-        // Filtro por tipo
-        if (filters.type !== 'all') {
-            filtered = filtered.filter(t => {
-                const isIncome = parseFloat(t.amount) > 0;
-                return filters.type === 'income' ? isIncome : !isIncome;
-            });
-        }
-
-        // Filtro por valor mínimo
-        if (filters.minAmount) {
-            filtered = filtered.filter(t =>
-                Math.abs(parseFloat(t.amount)) >= parseFloat(filters.minAmount)
-            );
-        }
-
-        // Filtro por valor máximo
-        if (filters.maxAmount) {
-            filtered = filtered.filter(t =>
-                Math.abs(parseFloat(t.amount)) <= parseFloat(filters.maxAmount)
-            );
-        }
-
-        // Filtro por data inicial
-        if (filters.startDate) {
-            filtered = filtered.filter(t =>
-                new Date(t.date) >= new Date(filters.startDate)
-            );
-        }
-
-        // Filtro por data final
-        if (filters.endDate) {
-            filtered = filtered.filter(t =>
-                new Date(t.date) <= new Date(filters.endDate)
-            );
-        }
-
-        setTransactions(filtered);
-    };
-
     const clearFilters = () => {
         setFilters({
             year: 'all',
@@ -165,16 +121,20 @@ const Transactions = () => {
             endDate: ''
         });
         setSearchTerm('');
+        setPage(1);
     };
 
-    // Gerar lista de anos disponíveis
+
+
+    // Gerar lista de anos disponíveis (últimos 5 anos)
     const availableYears = useMemo(() => {
-        const years = new Set();
-        allTransactions.forEach(t => {
-            years.add(new Date(t.date).getFullYear());
-        });
-        return Array.from(years).sort((a, b) => b - a);
-    }, [allTransactions]);
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let i = 0; i < 5; i++) {
+            years.push(currentYear - i);
+        }
+        return years;
+    }, []);
 
     // Categorias disponíveis
     const categories = [
@@ -578,6 +538,34 @@ const Transactions = () => {
                     ))
                 )}
             </div>
+
+            {/* Paginação */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-6">
+                    <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <ChevronLeft size={20} />
+                        Anterior
+                    </button>
+
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        Página {page} de {totalPages}
+                    </span>
+
+                    <button
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Próxima
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            )}
+
 
             {/* Nova/Editar Transação Modal */}
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingTransaction ? "Editar Transação" : "Nova Transação"}>

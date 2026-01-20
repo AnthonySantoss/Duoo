@@ -13,6 +13,7 @@ const Achievement = require('./Achievement');
 const UserAchievement = require('./UserAchievement');
 const BudgetAlert = require('./BudgetAlert');
 const AlertNotification = require('./AlertNotification');
+const Notification = require('./Notification');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -63,6 +64,9 @@ AlertNotification.belongsTo(User, { foreignKey: 'user_id' });
 BudgetAlert.hasMany(AlertNotification, { foreignKey: 'alert_id' });
 AlertNotification.belongsTo(BudgetAlert, { foreignKey: 'alert_id' });
 
+User.hasMany(Notification, { foreignKey: 'user_id' });
+Notification.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -78,5 +82,6 @@ module.exports = {
     Achievement,
     UserAchievement,
     BudgetAlert,
-    AlertNotification
+    AlertNotification,
+    Notification
 };

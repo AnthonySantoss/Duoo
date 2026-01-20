@@ -1,6 +1,11 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const {
+    sequelize, User, Wallet, Transaction, Goal, CreditCard,
+    CreditCardPurchase, CreditCardInvoice, Simulation, Loan,
+    TransactionCorrection, UserAchievement, BudgetAlert,
+    AlertNotification, Notification
+} = require('../models');
 
 exports.register = async (req, res) => {
     try {
@@ -145,19 +150,52 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.deleteAccount = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
         const userId = req.user.id;
 
-        const user = await User.findByPk(userId);
+        const user = await User.findByPk(userId, { transaction: t });
         if (!user) {
+            await t.rollback();
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
 
-        // Deletar usuário (cascade vai deletar dados relacionados)
-        await user.destroy();
+        // 1. Delete direct associations (Notification, Alerts, Achievements, etc.)
+        await Notification.destroy({ where: { user_id: userId }, transaction: t });
+        await AlertNotification.destroy({ where: { user_id: userId }, transaction: t });
+        await BudgetAlert.destroy({ where: { user_id: userId }, transaction: t });
+        await UserAchievement.destroy({ where: { user_id: userId }, transaction: t });
+        await TransactionCorrection.destroy({ where: { user_id: userId }, transaction: t });
+        await Simulation.destroy({ where: { user_id: userId }, transaction: t });
 
+        // 2. Delete Loans before Goals (Loan belongsTo Goal)
+        await Loan.destroy({ where: { user_id: userId }, transaction: t });
+        await Goal.destroy({ where: { user_id: userId }, transaction: t });
+
+        // 3. Delete Credit Card related data
+        const creditCards = await CreditCard.findAll({ where: { user_id: userId }, transaction: t });
+        const creditCardIds = creditCards.map(cc => cc.id);
+
+        if (creditCardIds.length > 0) {
+            await CreditCardPurchase.destroy({ where: { credit_card_id: creditCardIds }, transaction: t });
+            await CreditCardInvoice.destroy({ where: { credit_card_id: creditCardIds }, transaction: t });
+            await CreditCard.destroy({ where: { user_id: userId }, transaction: t });
+        }
+
+        // 4. Delete Transactions and Wallets
+        await Transaction.destroy({ where: { user_id: userId }, transaction: t });
+        await Wallet.destroy({ where: { user_id: userId }, transaction: t });
+
+        // 4.1 Unlink partner if exists (prevent self-reference or other user reference block)
+        await User.update({ partner_id: null }, { where: { partner_id: userId }, transaction: t });
+
+        // 5. Finally delete the User
+        await user.destroy({ transaction: t });
+
+        await t.commit();
         res.json({ message: 'Conta excluída com sucesso' });
     } catch (error) {
+        await t.rollback();
         console.error('Error deleting account:', error);
         res.status(500).json({ error: 'Erro ao excluir conta' });
     }

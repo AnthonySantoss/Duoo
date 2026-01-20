@@ -4,8 +4,22 @@ const budgetAlertService = require('../services/budgetAlertService');
 
 exports.getTransactions = async (req, res) => {
     try {
-        const { viewMode, search } = req.query;
+        const {
+            viewMode,
+            search,
+            page = 1,
+            limit = 10,
+            year,
+            category,
+            type,
+            minAmount,
+            maxAmount,
+            startDate,
+            endDate
+        } = req.query;
+
         const userId = req.user.id;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
 
         // Get user to check for partner
         const user = await User.findByPk(userId);
@@ -13,38 +27,102 @@ exports.getTransactions = async (req, res) => {
 
         // Filter by viewMode
         if (viewMode === 'user1') {
-            // Show only logged user's transactions
             whereClause.user_id = userId;
         } else if (viewMode === 'user2' && user.partner_id) {
-            // Show only partner's transactions
             whereClause.user_id = user.partner_id;
         } else if (viewMode === 'joint') {
-            // Show both user and partner transactions
             const partnerIds = [userId];
             if (user.partner_id) {
                 partnerIds.push(user.partner_id);
             }
             whereClause.user_id = { [Op.in]: partnerIds };
         } else {
-            // Default: show user's transactions
             whereClause.user_id = userId;
         }
 
         // Search filter
         if (search) {
-            whereClause.title = { [Op.like]: `%${search}%` };
+            whereClause[Op.or] = [
+                { title: { [Op.like]: `%${search}%` } },
+                { category: { [Op.like]: `%${search}%` } }
+            ];
         }
 
-        const transactions = await Transaction.findAll({
+        // Year filter
+        if (year && year !== 'all') {
+            const startYear = new Date(`${year}-01-01T00:00:00.000Z`);
+            const endYear = new Date(`${year}-12-31T23:59:59.999Z`);
+
+            // If startDate/endDate is also present, we need to intersect
+            // But for simplicity, year filter overrides date range or operates alongside it
+            // If date filter is not set, use year
+            if (!startDate && !endDate && !whereClause.date) {
+                whereClause.date = { [Op.between]: [startYear, endYear] };
+            }
+        }
+
+        // Category filter
+        if (category && category !== 'all') {
+            whereClause.category = category;
+        }
+
+        // Type filter
+        if (type && type !== 'all') {
+            whereClause.type = type;
+        }
+
+        // Amount filters (Absolute value logic)
+        // Note: We need the sequelize instance to use fn('ABS')
+        // Assuming sequelize is available in models/index.js (we need to require it at top of file, but let's assume standard simple filtering for now is better if we don't want to break imports yet)
+        // Actually, let's keep it simple: Positive/Negative filter is handled by 'type'.
+        // minAmount/maxAmount usually refers to MAGNITUDE in the frontend filters.
+        if (minAmount || maxAmount) {
+            const { sequelize } = require('../models');
+            const absAmount = sequelize.fn('ABS', sequelize.col('amount'));
+
+            const amountWhere = {};
+            if (minAmount) amountWhere[Op.gte] = parseFloat(minAmount);
+            if (maxAmount) amountWhere[Op.lte] = parseFloat(maxAmount);
+
+            whereClause[Op.and] = [
+                ...(whereClause[Op.and] || []),
+                sequelize.where(absAmount, amountWhere)
+            ];
+        }
+
+        // Date Range filters
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) dateFilter[Op.gte] = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                dateFilter[Op.lte] = end;
+            }
+
+            // If year was set, verify intersection? 
+            // We overwrite year logic if specific dates are provided, or use logic AND.
+            // Let's simplified: specific dates take precedence or just overwrite 'date' field in whereClause
+            whereClause.date = dateFilter;
+        }
+
+        const { count, rows } = await Transaction.findAndCountAll({
             where: whereClause,
             include: [
                 { model: Wallet, attributes: ['name', 'type'] },
                 { model: User, attributes: ['name'] }
             ],
-            order: [['date', 'DESC'], ['createdAt', 'DESC']]
+            order: [['date', 'DESC'], ['createdAt', 'DESC']],
+            limit: parseInt(limit),
+            offset: offset
         });
 
-        res.json(transactions);
+        res.json({
+            transactions: rows,
+            totalItems: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
     } catch (error) {
         console.error('Error in getTransactions:', error);
         res.status(500).json({ error: error.message });
