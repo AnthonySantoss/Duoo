@@ -211,7 +211,7 @@ const Overview = () => {
                 <div className="space-y-4">
                     <div className="section-header">
                         <h3 className="section-title">Gastos por Categoria</h3>
-                        <Link to="/dashboard/transactions" className="section-link">Ver todos</Link>
+                        <Link to="/dashboard/forecast" className="section-link">Ver todos</Link>
                     </div>
                     <div className="category-list">
                         {expensesByCategory && expensesByCategory.slice(0, 4).map((item, idx) => (

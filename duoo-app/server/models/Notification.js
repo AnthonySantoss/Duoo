@@ -8,10 +8,10 @@ const Notification = sequelize.define('Notification', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
-            model: 'users',
+            model: 'Users', // Matches table name usually pluralized by Sequelize
             key: 'id'
         },
         onDelete: 'CASCADE'

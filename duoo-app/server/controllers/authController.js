@@ -51,6 +51,10 @@ exports.getMe = async (req, res) => {
             attributes: ['id', 'name', 'email', 'partner_id']
         });
 
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
         let partner = null;
         if (user.partner_id) {
             partner = await User.findByPk(user.partner_id, {
