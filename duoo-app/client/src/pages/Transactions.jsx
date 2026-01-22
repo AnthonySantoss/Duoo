@@ -202,6 +202,18 @@ const Transactions = () => {
         const numAmount = parseFloat(formData.amount);
         const finalAmount = formData.type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
 
+        // Validação de saldo para despesas
+        if (formData.type === 'expense') {
+            const selectedWallet = wallets.find(w => w.id === parseInt(formData.wallet_id));
+            if (selectedWallet && numAmount > parseFloat(selectedWallet.balance)) {
+                setToast({
+                    message: `Saldo insuficiente. Saldo disponível: R$ ${parseFloat(selectedWallet.balance).toFixed(2)}`,
+                    type: 'error'
+                });
+                return;
+            }
+        }
+
         const payload = {
             title: formData.title,
             amount: finalAmount,

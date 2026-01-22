@@ -148,6 +148,17 @@ exports.createTransaction = async (req, res) => {
             return res.status(403).json({ error: 'Você só pode criar transações em suas próprias carteiras' });
         }
 
+        const amountValue = parseFloat(amount);
+        const currentBalance = parseFloat(wallet.balance);
+
+        // Validar saldo suficiente para despesas
+        if (amountValue < 0 && Math.abs(amountValue) > currentBalance) {
+            return res.status(400).json({
+                error: `Saldo insuficiente. Saldo disponível: R$ ${currentBalance.toFixed(2)}`,
+                availableBalance: currentBalance
+            });
+        }
+
         const transaction = await Transaction.create({
             title,
             amount,
@@ -159,8 +170,7 @@ exports.createTransaction = async (req, res) => {
         });
 
         // Update wallet balance
-        const amountValue = parseFloat(amount);
-        wallet.balance = parseFloat(wallet.balance) + amountValue;
+        wallet.balance = currentBalance + amountValue;
         await wallet.save();
 
         // Check for budget alerts

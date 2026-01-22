@@ -93,6 +93,10 @@ const Forecast = () => {
                             />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                formatter={(value, name) => {
+                                    const labels = { income: 'Receitas', expense: 'Despesas' };
+                                    return [`R$ ${parseFloat(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, labels[name] || name];
+                                }}
                             />
                             <Area
                                 type="monotone"

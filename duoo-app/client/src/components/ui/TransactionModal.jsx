@@ -7,6 +7,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
     const { checkAchievements } = useAchievements();
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         title: '',
         amount: '',
@@ -59,12 +60,24 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
         });
     };
 
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError('');
 
         const numAmount = parseFloat(formData.amount);
         const finalAmount = formData.type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
+
+        // Validação no frontend - verificar saldo para despesas
+        if (formData.type === 'expense') {
+            const selectedWallet = wallets.find(w => w.id === parseInt(formData.wallet_id));
+            if (selectedWallet && numAmount > parseFloat(selectedWallet.balance)) {
+                setError(`Saldo insuficiente. Saldo disponível: R$ ${parseFloat(selectedWallet.balance).toFixed(2)}`);
+                setLoading(false);
+                return;
+            }
+        }
 
         const payload = {
             title: formData.title,
@@ -85,14 +98,16 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
             if (onSuccess) onSuccess();
             onClose();
             resetForm();
+            setError('');
             // Verificamos por conquistas imediatamente após o lançamento
             setTimeout(() => {
                 checkAchievements();
                 // Trigger notification refresh
                 window.dispatchEvent(new CustomEvent('refresh-notifications'));
             }, 500);
-        } catch (error) {
-            console.error('Failed to save transaction:', error);
+        } catch (err) {
+            console.error('Failed to save transaction:', err);
+            setError(err.response?.data?.error || 'Erro ao salvar transação');
         } finally {
             setLoading(false);
         }
@@ -101,6 +116,11 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={transaction ? "Editar Transação" : "Nova Transação"}>
             <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className="p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-sm font-medium">
+                        ⚠️ {error}
+                    </div>
+                )}
                 <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição</label>
                     <input

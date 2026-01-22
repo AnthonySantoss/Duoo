@@ -4,12 +4,13 @@ const { Op } = require('sequelize');
 exports.getWallets = async (req, res) => {
     try {
         const { mine } = req.query; // Se mine=true, retorna apenas carteiras do usuário logado
+        const mineOnly = mine === 'true' || mine === '1';
 
         const user = await User.findByPk(req.user.id);
         let allowedUsers = [req.user.id];
 
-        // Só inclui carteiras do parceiro se não for filtro "mine"
-        if (!mine && user.partner_id) {
+        // Só inclui carteiras do parceiro se NÃO for filtro "mine"
+        if (!mineOnly && user.partner_id) {
             allowedUsers.push(user.partner_id);
         }
 
