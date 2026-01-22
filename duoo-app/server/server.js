@@ -1,18 +1,44 @@
 const app = require('./app');
 const { sequelize } = require('./models');
 const { scheduleYieldJob } = require('./services/yieldService');
+const notificationService = require('./services/notificationService');
 
 const PORT = process.env.PORT || 5000;
 
-// Register Stats Route if not already in app.js (likely handled there, but let's check app.js first)
-// Wait, routes are usually in app.js, let's check app.js.
+// Schedule daily notification checks
+function scheduleNotificationJobs() {
+    // Check invoices and goals every hour at minute 0
+    const checkInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 
+    // Initial check after 10 seconds to let database sync
+    setTimeout(() => {
+        console.log('📧 Running initial notification checks...');
+        notificationService.checkUpcomingInvoices();
+        notificationService.checkGoalProgress();
+    }, 10000);
+
+    // Then check every hour
+    setInterval(() => {
+        const now = new Date();
+        // Only run full check at 9 AM, 1 PM, and 6 PM local time
+        if ([9, 13, 18].includes(now.getHours())) {
+            console.log('📧 Running scheduled notification checks...');
+            notificationService.checkUpcomingInvoices();
+            notificationService.checkGoalProgress();
+        }
+    }, checkInterval);
+
+    console.log('✅ Notification jobs scheduled');
+}
 
 sequelize.sync({ force: false }).then(() => {
     console.log('Database synced');
 
     // Iniciar agendador de rendimentos
     scheduleYieldJob();
+
+    // Iniciar agendador de notificações
+    scheduleNotificationJobs();
 
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

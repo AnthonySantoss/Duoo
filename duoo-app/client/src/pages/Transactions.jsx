@@ -100,7 +100,8 @@ const Transactions = () => {
 
     const fetchWallets = async () => {
         try {
-            const res = await api.get('/wallets');
+            // Busca apenas carteiras do usuário logado (não do parceiro)
+            const res = await api.get('/wallets?mine=true');
             setWallets(res.data);
             if (res.data.length > 0 && !formData.wallet_id) {
                 setFormData(prev => ({ ...prev, wallet_id: res.data[0].id }));

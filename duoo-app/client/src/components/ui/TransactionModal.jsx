@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import api from '../../services/api';
+import { useAchievements } from '../../context/AchievementContext';
 
 const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) => {
+    const { checkAchievements } = useAchievements();
     const [wallets, setWallets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -35,7 +37,8 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
 
     const fetchWallets = async () => {
         try {
-            const res = await api.get('/wallets');
+            // Busca apenas carteiras do usuário logado (não do parceiro)
+            const res = await api.get('/wallets?mine=true');
             setWallets(res.data);
             if (res.data.length > 0 && !formData.wallet_id && !transaction) {
                 setFormData(prev => ({ ...prev, wallet_id: res.data[0].id }));
@@ -82,6 +85,12 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
             if (onSuccess) onSuccess();
             onClose();
             resetForm();
+            // Verificamos por conquistas imediatamente após o lançamento
+            setTimeout(() => {
+                checkAchievements();
+                // Trigger notification refresh
+                window.dispatchEvent(new CustomEvent('refresh-notifications'));
+            }, 500);
         } catch (error) {
             console.error('Failed to save transaction:', error);
         } finally {

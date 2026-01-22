@@ -1450,8 +1450,8 @@
 /* --- NAVEGAÇÃO INFERIOR --- */
 
 .bottom-nav {
-  position: absolute;
-  bottom: 1.5rem;
+  position: fixed;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   left: 1rem;
   right: 1rem;
   background-color: rgba(226, 232, 240, 0.8);

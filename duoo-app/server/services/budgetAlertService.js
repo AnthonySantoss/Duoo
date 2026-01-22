@@ -1,5 +1,7 @@
-const { BudgetAlert, AlertNotification, Transaction, Op } = require('../models');
+const { BudgetAlert, AlertNotification, Transaction } = require('../models');
+const { Op } = require('sequelize');
 const { sequelize } = require('../models');
+const notificationService = require('./notificationService');
 
 class BudgetAlertService {
     /**
@@ -59,21 +61,22 @@ class BudgetAlertService {
         // Adicionar o valor da transação atual se ainda não estiver no banco (assumindo hook afterCreate)
         // Se chamado após commit, totalSpent já inclui. Vamos assumir que inclui.
 
+        const totalSpentAbs = Math.abs(totalSpent);
         const limit = parseFloat(alert.threshold_amount);
-        const percentage = (totalSpent / limit) * 100;
+        const percentage = (totalSpentAbs / limit) * 100;
         const thresholdPercent = alert.threshold_percentage || 100;
 
         // Se passou do limite ou atingiu a porcentagem de alerta
         if (percentage >= thresholdPercent) {
             // Verificar se já alertou recentemente para não spammar (ex: 1 vez por dia)
-            const shouldNotify = await this.shouldNotify(alert); // TODO
+            const shouldNotify = await this.shouldNotify(alert);
 
             if (shouldNotify) {
                 let message = '';
                 if (percentage >= 100) {
-                    message = `Você atingiu 100% do seu orçamento de R$ ${limit} para ${alert.category}. Total gasto: R$ ${totalSpent.toFixed(2)}.`;
+                    message = `Você atingiu 100% do seu orçamento de R$ ${limit} para ${alert.category}. Total gasto: R$ ${totalSpentAbs.toFixed(2)}.`;
                 } else {
-                    message = `Você já usou ${percentage.toFixed(0)}% do seu orçamento para ${alert.category}. Restam R$ ${(limit - totalSpent).toFixed(2)}.`;
+                    message = `Você já usou ${percentage.toFixed(0)}% do seu orçamento para ${alert.category}. Restam R$ ${(limit - totalSpentAbs).toFixed(2)}.`;
                 }
 
                 await this.createNotification(userId, alert.id, 'Alerta de Orçamento', message, percentage >= 100 ? 'warning' : 'info');
@@ -96,8 +99,9 @@ class BudgetAlertService {
             }
         }) || 0;
 
+        const totalSpentAbs = Math.abs(totalSpent);
         const limit = parseFloat(alert.threshold_amount);
-        const percentage = (totalSpent / limit) * 100;
+        const percentage = (totalSpentAbs / limit) * 100;
         const thresholdPercent = alert.threshold_percentage || 90;
 
         if (percentage >= thresholdPercent) {
@@ -106,9 +110,9 @@ class BudgetAlertService {
             if (shouldNotify) {
                 let message = '';
                 if (percentage >= 100) {
-                    message = `Atenção! Você excedeu seu orçamento mensal total de R$ ${limit}. Gasto atual: R$ ${totalSpent.toFixed(2)}.`;
+                    message = `Atenção! Você excedeu seu orçamento mensal total de R$ ${limit}. Gasto atual: R$ ${totalSpentAbs.toFixed(2)}.`;
                 } else {
-                    message = `Você atingiu ${percentage.toFixed(0)}% do seu orçamento mensal total. Gasto atual: R$ ${totalSpent.toFixed(2)}.`;
+                    message = `Você atingiu ${percentage.toFixed(0)}% do seu orçamento mensal total. Gasto atual: R$ ${totalSpentAbs.toFixed(2)}.`;
                 }
 
                 await this.createNotification(userId, alert.id, 'Orçamento Mensal', message, percentage >= 100 ? 'critical' : 'warning');
@@ -142,6 +146,7 @@ class BudgetAlertService {
     }
 
     async createNotification(userId, alertId, title, message, severity) {
+        // Create in AlertNotification table (legacy)
         await AlertNotification.create({
             user_id: userId,
             alert_id: alertId,
@@ -149,6 +154,15 @@ class BudgetAlertService {
             message,
             severity
         });
+
+        // Also create in main Notification table for unified notifications
+        await notificationService.createNotification(
+            userId,
+            title,
+            message,
+            'budget_alert',
+            '/dashboard/transactions'
+        );
     }
 
     async updateLastTriggered(alert) {

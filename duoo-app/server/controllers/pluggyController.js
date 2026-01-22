@@ -3,6 +3,7 @@ const { Wallet, Transaction, Goal, CreditCard, CreditCardInvoice, CreditCardPurc
 const { Op } = require('sequelize');
 // Certifique-se que o caminho do seu serviço de categorização está correto:
 const categorizerService = require('../services/transactionCategorizer');
+const notificationService = require('../services/notificationService');
 
 /**
  * 1. GET CONNECT TOKEN
@@ -170,6 +171,9 @@ const syncItem = async (req, res) => {
         } catch (error) {
             console.error('❌ Failed to sync credit card details:', error.message);
         }
+
+        // Notify user about successful sync
+        await notificationService.notifyBankSyncComplete(userId, item.connector.name, stats.transactions);
 
         res.json({
             success: true,

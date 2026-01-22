@@ -1,5 +1,6 @@
 const { Achievement, UserAchievement, Transaction, Goal, Wallet, User } = require('../models');
 const { Op } = require('sequelize');
+const notificationService = require('./notificationService');
 
 /**
  * Service para gerenciar conquistas e verificar desbloqueios
@@ -38,6 +39,9 @@ class AchievementService {
                         achievement_id: achievement.id,
                         is_new: true
                     });
+
+                    // Create notification for the unlocked achievement
+                    await notificationService.notifyAchievementUnlocked(userId, achievement);
 
                     newAchievements.push(achievement);
                     console.log(`🏆 Achievement unlocked for user ${userId}: ${achievement.title}`);

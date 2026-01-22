@@ -1,5 +1,6 @@
 const { Goal, User, Transaction, Wallet } = require('../models');
 const { Op } = require('sequelize');
+const notificationService = require('../services/notificationService');
 
 exports.getGoals = async (req, res) => {
     try {
@@ -172,10 +173,34 @@ exports.addProgress = async (req, res) => {
             await wallet.save({ transaction: t });
         }
 
+        const previousAmount = parseFloat(goal.current_amount) - parseFloat(amount);
+        const previousPercentage = (previousAmount / goal.target_amount) * 100;
         goal.current_amount = parseFloat(goal.current_amount) + parseFloat(amount);
+        const newPercentage = (goal.current_amount / goal.target_amount) * 100;
+
         await goal.save({ transaction: t });
 
         await t.commit();
+
+        // Check for milestone notifications (after commit to ensure data is saved)
+        const milestones = [50, 75, 90, 100];
+        for (const milestone of milestones) {
+            if (previousPercentage < milestone && newPercentage >= milestone) {
+                if (milestone === 100) {
+                    // Goal completed!
+                    await notificationService.notifyGoalReached(goal.user_id, goal);
+
+                    // Also notify partner if exists
+                    if (user.partner_id && goal.is_joint) {
+                        await notificationService.notifyGoalReached(user.partner_id, goal);
+                    }
+                } else {
+                    await notificationService.notifyGoalProgress(goal.user_id, goal, milestone);
+                }
+                break; // Only notify the highest milestone reached in this update
+            }
+        }
+
         res.json(goal);
     } catch (error) {
         await t.rollback();

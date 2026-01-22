@@ -204,54 +204,54 @@ const DashboardLayout = () => {
                 <div className="px-6 pb-24 md:px-8 md:pb-12 scrollbar-hide">
                     <Outlet context={{ viewMode }} />
                 </div>
-
-                {/* Bottom Navigation Mobile */}
-                <nav className="bottom-nav md:hidden">
-                    <Link
-                        to="/dashboard"
-                        className={`nav-btn ${isActive('/dashboard') && !isActive('/dashboard/') ? 'active' : ''}`}
-                    >
-                        <LayoutDashboard size={24} strokeWidth={isActive('/dashboard') && !isActive('/dashboard/') ? 2.5 : 2} />
-                        <span className="nav-btn-indicator"></span>
-                    </Link>
-
-                    <Link
-                        to="/dashboard/transactions"
-                        className={`nav-btn ${isActive('/dashboard/transactions') ? 'active' : ''}`}
-                    >
-                        <ArrowRightLeft size={24} strokeWidth={isActive('/dashboard/transactions') ? 2.5 : 2} />
-                        <span className="nav-btn-indicator"></span>
-                    </Link>
-
-                    <button
-                        className="nav-add-btn group"
-                        onClick={() => setIsTransactionModalOpen(true)}
-                    >
-                        <div className="nav-add-btn-inner">
-                            <PlusCircle size={28} className="nav-add-icon" />
-                        </div>
-                        <div className="nav-add-label">
-                            Lançar
-                        </div>
-                    </button>
-
-                    <Link
-                        to="/dashboard/goals"
-                        className={`nav-btn ${isActive('/dashboard/goals') ? 'active' : ''}`}
-                    >
-                        <Target size={24} strokeWidth={isActive('/dashboard/goals') ? 2.5 : 2} />
-                        <span className="nav-btn-indicator"></span>
-                    </Link>
-
-                    <Link
-                        to="/dashboard/menu"
-                        className={`nav-btn ${isActive('/dashboard/menu') ? 'active' : ''}`}
-                    >
-                        <MenuIcon size={24} strokeWidth={isActive('/dashboard/menu') ? 2.5 : 2} />
-                        <span className="nav-btn-indicator"></span>
-                    </Link>
-                </nav>
             </main>
+
+            {/* Bottom Navigation Mobile - fora do main para posicionamento fixo correto */}
+            <nav className="bottom-nav md:hidden">
+                <Link
+                    to="/dashboard"
+                    className={`nav-btn ${isActive('/dashboard') && !isActive('/dashboard/') ? 'active' : ''}`}
+                >
+                    <LayoutDashboard size={24} strokeWidth={isActive('/dashboard') && !isActive('/dashboard/') ? 2.5 : 2} />
+                    <span className="nav-btn-indicator"></span>
+                </Link>
+
+                <Link
+                    to="/dashboard/transactions"
+                    className={`nav-btn ${isActive('/dashboard/transactions') ? 'active' : ''}`}
+                >
+                    <ArrowRightLeft size={24} strokeWidth={isActive('/dashboard/transactions') ? 2.5 : 2} />
+                    <span className="nav-btn-indicator"></span>
+                </Link>
+
+                <button
+                    className="nav-add-btn group"
+                    onClick={() => setIsTransactionModalOpen(true)}
+                >
+                    <div className="nav-add-btn-inner">
+                        <PlusCircle size={28} className="nav-add-icon" />
+                    </div>
+                    <div className="nav-add-label">
+                        Lançar
+                    </div>
+                </button>
+
+                <Link
+                    to="/dashboard/goals"
+                    className={`nav-btn ${isActive('/dashboard/goals') ? 'active' : ''}`}
+                >
+                    <Target size={24} strokeWidth={isActive('/dashboard/goals') ? 2.5 : 2} />
+                    <span className="nav-btn-indicator"></span>
+                </Link>
+
+                <Link
+                    to="/dashboard/menu"
+                    className={`nav-btn ${isActive('/dashboard/menu') ? 'active' : ''}`}
+                >
+                    <MenuIcon size={24} strokeWidth={isActive('/dashboard/menu') ? 2.5 : 2} />
+                    <span className="nav-btn-indicator"></span>
+                </Link>
+            </nav>
 
             {/* Global Achievement Modal */}
             <AchievementModal

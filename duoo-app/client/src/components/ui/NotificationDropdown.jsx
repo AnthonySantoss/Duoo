@@ -11,9 +11,17 @@ const NotificationDropdown = () => {
     useEffect(() => {
         fetchNotifications();
 
-        // Poll for new notifications every minute
-        const interval = setInterval(fetchNotifications, 60000);
-        return () => clearInterval(interval);
+        // Poll for new notifications every 15 seconds
+        const interval = setInterval(fetchNotifications, 15000);
+
+        // Listen for custom refresh events (triggered after important actions)
+        const handleRefresh = () => fetchNotifications();
+        window.addEventListener('refresh-notifications', handleRefresh);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('refresh-notifications', handleRefresh);
+        };
     }, []);
 
     useEffect(() => {

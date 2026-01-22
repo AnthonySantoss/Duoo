@@ -2,6 +2,7 @@ const { Transaction, Wallet, User } = require('../models');
 const { Op } = require('sequelize');
 const budgetAlertService = require('../services/budgetAlertService');
 const achievementService = require('../services/achievementService');
+const notificationService = require('../services/notificationService');
 
 exports.getTransactions = async (req, res) => {
     try {
@@ -134,18 +135,17 @@ exports.createTransaction = async (req, res) => {
     try {
         const { title, amount, category, date, type, wallet_id } = req.body;
 
-        // Validate wallet belongs to user or partner
+        // Validate wallet belongs to user (only own wallets, not partner's)
         const wallet = await Wallet.findByPk(wallet_id);
         if (!wallet) {
             return res.status(404).json({ error: 'Carteira não encontrada' });
         }
 
         const user = await User.findByPk(req.user.id);
-        const allowedUsers = [req.user.id];
-        if (user.partner_id) allowedUsers.push(user.partner_id);
 
-        if (!allowedUsers.includes(wallet.user_id)) {
-            return res.status(403).json({ error: 'Você não tem permissão para usar esta carteira' });
+        // Transações só podem ser criadas em carteiras do próprio usuário
+        if (wallet.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Você só pode criar transações em suas próprias carteiras' });
         }
 
         const transaction = await Transaction.create({
@@ -168,6 +168,15 @@ exports.createTransaction = async (req, res) => {
 
         // Check for achievements
         await achievementService.checkAndUnlockAchievements(req.user.id);
+
+        // Notify partner about the transaction
+        if (user.partner_id) {
+            await notificationService.notifyPartnerTransaction(
+                user.partner_id,
+                user.name,
+                transaction
+            );
+        }
 
         res.status(201).json(transaction);
     } catch (error) {
