@@ -163,4 +163,32 @@ exports.sendToPartner = async (req, res) => {
     }
 };
 
+/**
+ * Marca uma notificação como "mostrada" (notified)
+ */
+exports.markAsNotified = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const notificationId = req.params.id;
+
+        const notification = await Notification.findOne({
+            where: {
+                id: notificationId,
+                user_id: userId
+            }
+        });
+
+        if (!notification) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+
+        await notification.update({ notified: true });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking notification as notified:', error);
+        res.status(500).json({ error: 'Failed to mark notification as notified' });
+    }
+};
+
 module.exports = exports;

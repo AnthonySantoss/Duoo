@@ -12,6 +12,9 @@ router.get('/', notificationController.getUserNotifications);
 // Marcar notificação como lida
 router.put('/:id/read', notificationController.markAsRead);
 
+// Marcar notificação como "mostrada" (popup)
+router.put('/:id/notified', notificationController.markAsNotified);
+
 // Marcar todas como lidas
 router.put('/read-all', notificationController.markAllAsRead);
 

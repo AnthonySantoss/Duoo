@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AchievementProvider } from './context/AchievementContext';
+import { NotificationProvider } from './context/NotificationContext';
 import Auth from './pages/Auth';
 import DashboardLayout from './pages/DashboardLayout';
 import Overview from './pages/Overview';
@@ -42,34 +43,36 @@ function App() {
   return (
     <AuthProvider>
       <AchievementProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Auth />} />
+        <NotificationProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Auth />} />
 
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-              <Route index element={<Overview />} />
-              <Route path="transactions" element={<Transactions />} />
-              <Route path="bank" element={<Bank />} />
-              <Route path="goals" element={<Goals />} />
-              <Route path="wallets" element={<Wallets />} />
-              <Route path="simulation" element={<Simulation />} />
-              <Route path="forecast" element={<Forecast />} />
-              <Route path="statement" element={<Statement />} />
-              <Route path="investments" element={<Investments />} />
-              <Route path="link-accounts" element={<LinkAccounts />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="achievements" element={<Achievements />} />
-              <Route path="economy-forecast" element={<EconomyForecast />} />
-              <Route path="recurring" element={<Recurring />} />
-              <Route path="menu" element={<MobileMenu />} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                <Route index element={<Overview />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="bank" element={<Bank />} />
+                <Route path="goals" element={<Goals />} />
+                <Route path="wallets" element={<Wallets />} />
+                <Route path="simulation" element={<Simulation />} />
+                <Route path="forecast" element={<Forecast />} />
+                <Route path="statement" element={<Statement />} />
+                <Route path="investments" element={<Investments />} />
+                <Route path="link-accounts" element={<LinkAccounts />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="achievements" element={<Achievements />} />
+                <Route path="economy-forecast" element={<EconomyForecast />} />
+                <Route path="recurring" element={<Recurring />} />
+                <Route path="menu" element={<MobileMenu />} />
 
-              {/* Fallback for other routes */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Route>
+                {/* Fallback for other routes */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </NotificationProvider>
       </AchievementProvider>
     </AuthProvider>
   );
