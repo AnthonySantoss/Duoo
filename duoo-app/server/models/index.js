@@ -14,6 +14,8 @@ const UserAchievement = require('./UserAchievement');
 const BudgetAlert = require('./BudgetAlert');
 const AlertNotification = require('./AlertNotification');
 const Notification = require('./Notification');
+const Challenge = require('./Challenge');
+const Recurring = require('./Recurring');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -67,8 +69,6 @@ AlertNotification.belongsTo(BudgetAlert, { foreignKey: 'alert_id' });
 User.hasMany(Notification, { foreignKey: 'user_id' });
 Notification.belongsTo(User, { foreignKey: 'user_id' });
 
-const Recurring = require('./Recurring');
-
 User.hasMany(Recurring, { foreignKey: 'user_id' });
 Recurring.belongsTo(User, { foreignKey: 'user_id' });
 
@@ -89,5 +89,6 @@ module.exports = {
     BudgetAlert,
     AlertNotification,
     Notification,
-    Recurring
+    Recurring,
+    Challenge
 };

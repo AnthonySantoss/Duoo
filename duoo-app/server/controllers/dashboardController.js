@@ -1,4 +1,4 @@
-const { Transaction, Wallet, User, Goal, CreditCard, CreditCardInvoice } = require('../models');
+const { Transaction, Wallet, User, Goal, CreditCard, CreditCardInvoice, CreditCardPurchase } = require('../models');
 const { Op } = require('sequelize');
 
 exports.getDashboardStats = async (req, res) => {
@@ -50,7 +50,10 @@ exports.getDashboardStats = async (req, res) => {
                 { model: Wallet, attributes: ['name'] },
                 { model: User, attributes: ['name'] }
             ],
-            order: [['date', 'DESC']]
+            order: [
+                ['date', 'DESC'],
+                ['createdAt', 'DESC']
+            ]
         });
 
         // Get goals to calculate total saved
@@ -103,25 +106,50 @@ exports.getDashboardStats = async (req, res) => {
         saved = income - spent;
         if (saved < 0) saved = 0;
 
-        // Calculate credit card invoices for current month
+        // Calculate credit card debt for current month
+        // We include joint cards and individual cards belonging to the users in the filter
         const creditCards = await CreditCard.findAll({
-            where: { user_id: { [Op.in]: userFilter } }
+            where: {
+                [Op.or]: [
+                    { user_id: { [Op.in]: userFilter } },
+                    { is_joint: true, user_id: { [Op.in]: allowedUsers } } // allowedUsers has both if partner exists
+                ]
+            }
         });
 
         const cardIds = creditCards.map(c => c.id);
 
         let invoices = [];
         if (cardIds.length > 0) {
+            // 1. Get explicit invoices for current month/year
             invoices = await CreditCardInvoice.findAll({
                 where: {
                     credit_card_id: { [Op.in]: cardIds },
-                    month: currentMonth + 1, // Month is 1-12, getMonth() returns 0-11
+                    month: currentMonth + 1,
                     year: currentYear,
-                    paid: false // Only count unpaid invoices
+                    paid: false
                 }
             });
 
-            creditCard = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+            const invoiceTotal = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+
+            // 2. Calculate "live" total from active purchases
+            // We sum the installment_amount of all purchases where installments remain
+            const activePurchases = await CreditCardPurchase.findAll({
+                where: {
+                    credit_card_id: { [Op.in]: cardIds },
+                    remaining_installments: { [Op.gt]: 0 }
+                }
+            });
+
+            const purchasesTotal = activePurchases.reduce((sum, p) => {
+                const amt = parseFloat(p.installment_amount || 0);
+                return sum + amt;
+            }, 0);
+
+            // The 'creditCard' value should be the current live spending plus any manual invoice adjustments
+            // Math.max is used because usually purchasesTotal reflects the live version of the invoice
+            creditCard = Math.max(invoiceTotal, purchasesTotal);
         }
 
         // Calculate balance variation (vs start of month)
@@ -138,14 +166,21 @@ exports.getDashboardStats = async (req, res) => {
         let nextInvoiceDay = null;
         if (invoices.length > 0) {
             const dates = invoices.map(inv => new Date(inv.due_date));
-            dates.sort((a, b) => a - b);
-            if (dates.length > 0) {
-                // Add 1 to correct for timezone/conversion issues if necessary, 
-                // but getDate() should be fine if stored correctly. 
-                // Usually due_date is YYYY-MM-DD.
-                // let's assume UTC or safe conversion
-                nextInvoiceDay = dates[0].getUTCDate();
-            }
+            const nextDate = new Date(Math.min(...dates));
+            nextInvoiceDay = nextDate.getDate();
+        }
+
+        // Calculate days since last transaction
+        let daysSinceLastTransaction = 0;
+        if (transactions.length > 0) {
+            const lastDate = new Date(transactions[0].date);
+            const today = new Date();
+            // Reset time part for accurate day calculation
+            lastDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+
+            const diffTime = today - lastDate;
+            daysSinceLastTransaction = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         }
 
         // Return structured data
@@ -157,6 +192,7 @@ exports.getDashboardStats = async (req, res) => {
             invested: totalSavedInGoals, // Now shows total saved in goals
             creditCard: creditCard,
             nextInvoiceDay: nextInvoiceDay,
+            daysSinceLastTransaction: daysSinceLastTransaction,
             transactions: transactions.slice(0, 5),
             expensesByCategory: calculateCategoryStats(transactions.filter(t => {
                 const transDate = new Date(t.date);

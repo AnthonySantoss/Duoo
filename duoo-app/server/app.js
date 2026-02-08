@@ -42,7 +42,11 @@ app.use('/api/category', categoryRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/challenges', require('./routes/challengeRoutes'));
 app.use('/api/recurring', require('./routes/recurringRoutes'));
+
+// Global Error Handler (Must be after all routes)
+app.use(require('./middleware/errorHandler'));
 
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');

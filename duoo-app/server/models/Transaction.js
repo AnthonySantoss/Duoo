@@ -51,6 +51,18 @@ const Transaction = sequelize.define('Transaction', {
     pluggy_account_id: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    split_with_partner: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    split_amount: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true
+    },
+    notes: {
+        type: DataTypes.TEXT,
+        allowNull: true
     }
 });
 

@@ -21,4 +21,7 @@ router.delete('/:id', notificationController.deleteNotification);
 // Criar notificação (para testes ou sistema interno)
 router.post('/', notificationController.createNotification);
 
+// Enviar recado para parceiro
+router.post('/send-to-partner', notificationController.sendToPartner);
+
 module.exports = router;

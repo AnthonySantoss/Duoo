@@ -199,7 +199,7 @@ exports.deleteCreditCard = async (req, res) => {
 exports.addPurchase = async (req, res) => {
     try {
         const { credit_card_id } = req.params;
-        const { description, total_amount, installments, purchase_date, category } = req.body;
+        const { description, total_amount, installments, purchase_date, category, notes } = req.body;
 
         const creditCard = await CreditCard.findByPk(credit_card_id);
         if (!creditCard) {
@@ -224,7 +224,8 @@ exports.addPurchase = async (req, res) => {
             installment_amount: installmentAmount,
             remaining_installments: parseInt(installments),
             purchase_date: purchase_date || new Date(),
-            credit_card_id: credit_card_id
+            credit_card_id: credit_card_id,
+            notes
         });
 
         res.status(201).json(purchase);

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const statsController = require('../controllers/statsController');
+const challengeController = require('../controllers/challengeController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
-router.get('/', statsController.getStatistics);
-router.get('/health', statsController.getHealthScore);
+router.get('/', challengeController.getChallenges);
+router.post('/', challengeController.createChallenge);
 
 module.exports = router;

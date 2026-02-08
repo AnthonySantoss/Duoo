@@ -137,7 +137,8 @@ exports.getTransactions = async (req, res) => {
             type: 'expense', // Visualmente é uma despesa
             isCreditCard: true, // Flag para frontend se necessário
             Wallet: { name: cc.CreditCard ? cc.CreditCard.name : 'Cartão de Crédito', type: 'credit_card' },
-            User: { name: 'Cartão' }
+            User: { name: 'Cartão' },
+            createdAt: cc.createdAt
         }));
 
         // Converter transações do Sequelize para JSON puro
@@ -146,8 +147,14 @@ exports.getTransactions = async (req, res) => {
         // Combinar as duas listas
         let allTransactions = [...normalizedBank, ...normalizedCC];
 
-        // 6. Ordenação Final (Data Decrescente)
-        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // 6. Ordenação Final (Data Decrescente e então Criado em Decrescente)
+        allTransactions.sort((a, b) => {
+            const dateComparison = new Date(b.date) - new Date(a.date);
+            if (dateComparison !== 0) return dateComparison;
+
+            // Se as datas forem iguais, ordenar pelo momento da criação
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
 
         // 7. Paginação em Memória (Slice)
         const totalItems = allTransactions.length;
@@ -168,7 +175,7 @@ exports.getTransactions = async (req, res) => {
 
 exports.createTransaction = async (req, res) => {
     try {
-        const { title, amount, category, date, type, wallet_id } = req.body;
+        const { title, amount, category, date, type, wallet_id, split_with_partner, split_amount, notes } = req.body;
 
         // Validate wallet belongs to user (only own wallets, not partner's)
         const wallet = await Wallet.findByPk(wallet_id);
@@ -194,6 +201,11 @@ exports.createTransaction = async (req, res) => {
             });
         }
 
+        let finalSplitAmount = split_amount;
+        if (split_with_partner && !finalSplitAmount) {
+            finalSplitAmount = Math.abs(amountValue) / 2;
+        }
+
         const transaction = await Transaction.create({
             title,
             amount,
@@ -201,7 +213,10 @@ exports.createTransaction = async (req, res) => {
             date,
             type,
             wallet_id,
-            user_id: req.user.id
+            user_id: req.user.id,
+            split_with_partner: !!split_with_partner,
+            split_amount: finalSplitAmount,
+            notes
         });
 
         // Update wallet balance
@@ -233,7 +248,7 @@ exports.createTransaction = async (req, res) => {
 exports.updateTransaction = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, amount, category, date, type } = req.body;
+        const { title, amount, category, date, type, split_with_partner, split_amount, notes } = req.body;
 
         // Bloquear edição de compras de cartão por esta rota por enquanto
         if (String(id).startsWith('cc_')) {
@@ -262,6 +277,9 @@ exports.updateTransaction = async (req, res) => {
         transaction.category = category;
         transaction.date = date;
         transaction.type = type;
+        transaction.split_with_partner = !!split_with_partner;
+        transaction.split_amount = split_with_partner ? (split_amount || Math.abs(parseFloat(amount)) / 2) : null;
+        transaction.notes = notes;
         await transaction.save();
 
         // Apply new balance change

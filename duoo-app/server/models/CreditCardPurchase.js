@@ -38,6 +38,10 @@ const CreditCardPurchase = sequelize.define('CreditCardPurchase', {
     credit_card_id: {
         type: DataTypes.INTEGER,
         allowNull: false
+    },
+    notes: {
+        type: DataTypes.TEXT,
+        allowNull: true
     }
 });
 

@@ -50,7 +50,9 @@ const Transactions = () => {
         type: 'expense',
         wallet_id: '',
         credit_card_id: '',
-        installments: 1
+        installments: 1,
+        split_with_partner: false,
+        split_amount: ''
     });
 
     useEffect(() => {
@@ -199,7 +201,9 @@ const Transactions = () => {
                 type: parseFloat(transaction.amount) < 0 ? 'expense' : 'income',
                 wallet_id: transaction.wallet_id,
                 credit_card_id: creditCards[0]?.id || '',
-                installments: 1
+                installments: 1,
+                split_with_partner: !!transaction.split_with_partner,
+                split_amount: transaction.split_amount || ''
             });
         } else {
             setEditingTransaction(null);
@@ -211,7 +215,9 @@ const Transactions = () => {
                 type: 'expense',
                 wallet_id: wallets[0]?.id || '',
                 credit_card_id: creditCards[0]?.id || '',
-                installments: 1
+                installments: 1,
+                split_with_partner: false,
+                split_amount: ''
             });
         }
         setIsModalOpen(true);
@@ -284,7 +290,9 @@ const Transactions = () => {
             category: formData.category,
             date: formData.date,
             type: formData.type,
-            wallet_id: parseInt(formData.wallet_id)
+            wallet_id: parseInt(formData.wallet_id),
+            split_with_partner: formData.split_with_partner,
+            split_amount: formData.split_amount ? parseFloat(formData.split_amount) : null
         };
 
         try {
@@ -304,7 +312,9 @@ const Transactions = () => {
                 type: 'expense',
                 wallet_id: wallets[0]?.id || '',
                 credit_card_id: creditCards[0]?.id || '',
-                installments: 1
+                installments: 1,
+                split_with_partner: false,
+                split_amount: ''
             });
         } catch (error) {
             console.error('Failed to save transaction:', error);
@@ -799,6 +809,40 @@ const Transactions = () => {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+                    )}
+
+                    {formData.type !== 'credit' && (
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Dividir com parceiro</span>
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-bold uppercase">Duoo</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={formData.split_with_partner}
+                                        onChange={e => setFormData({ ...formData, split_with_partner: e.target.checked })}
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+
+                            {formData.split_with_partner && (
+                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Valor para o parceiro (Opcional, padrão 50%)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder={`Ex: ${(parseFloat(formData.amount || 0) / 2).toFixed(2)}`}
+                                        value={formData.split_amount}
+                                        onChange={e => setFormData({ ...formData, split_amount: e.target.value })}
+                                        className="w-full px-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
 

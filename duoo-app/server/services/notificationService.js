@@ -78,7 +78,12 @@ class NotificationService {
         const emoji = isExpense ? '💸' : '💰';
         const tipo = isExpense ? 'gastou' : 'recebeu';
         const title = `${emoji} ${partnerName} ${tipo} R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
-        const message = `${partnerName} registrou "${transaction.title}" em ${transaction.category}.`;
+        let message = `${partnerName} registrou "${transaction.title}" em ${transaction.category}.`;
+
+        if (transaction.notes) {
+            message += ` Nota: "${transaction.notes}"`;
+        }
+
         return this.createNotification(userId, title, message, 'transaction', '/dashboard/transactions');
     }
 

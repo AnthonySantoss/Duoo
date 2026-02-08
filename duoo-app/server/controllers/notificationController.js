@@ -1,4 +1,4 @@
-const { Notification } = require('../models');
+const { Notification, User } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -128,6 +128,38 @@ exports.createNotification = async (req, res) => {
     } catch (error) {
         console.error('Error creating notification:', error);
         res.status(500).json({ error: 'Failed to create notification' });
+    }
+};
+
+/**
+ * Envia uma nota para o parceiro
+ */
+exports.sendToPartner = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { message } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user.partner_id) {
+            return res.status(400).json({ error: 'You do not have a linked partner' });
+        }
+
+        const notification = await Notification.create({
+            user_id: user.partner_id,
+            title: `Recado de ${user.name} ❤️`,
+            message,
+            type: 'note',
+            read: false
+        });
+
+        res.status(201).json(notification);
+    } catch (error) {
+        console.error('Error sending note to partner:', error);
+        res.status(500).json({ error: 'Failed to send note' });
     }
 };
 

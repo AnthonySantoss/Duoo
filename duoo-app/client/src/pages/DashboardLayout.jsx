@@ -83,12 +83,18 @@ const DashboardLayout = () => {
                     className={`w-full flex items-center gap-3 mb-4 p-2 -mx-2 rounded-xl transition-colors text-left group ${isActive('/dashboard/link-accounts') ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                 >
                     <div className="flex -space-x-2 shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white border-2 border-white dark:border-slate-900">
-                            {user?.name?.charAt(0).toUpperCase() || 'U'}
+                        <div
+                            className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white border-2 border-white dark:border-slate-900"
+                            title={user?.name || user?.email}
+                        >
+                            {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                         </div>
                         {hasPartner ? (
-                            <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white border-2 border-white dark:border-slate-900">
-                                {partner?.name?.charAt(0).toUpperCase() || 'P'}
+                            <div
+                                className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white border-2 border-white dark:border-slate-900"
+                                title={partner?.name || partner?.email}
+                            >
+                                {(partner?.name || partner?.email || 'P').charAt(0).toUpperCase()}
                             </div>
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-white border-2 border-white dark:border-slate-900">
@@ -143,8 +149,8 @@ const DashboardLayout = () => {
                     <div className="header-top">
                         <div className="header-user-info">
                             <div className="header-avatar-container">
-                                <div className="header-avatar">
-                                    {viewMode === 'joint' ? <Users size={18} /> : viewMode === 'user1' ? (user?.name?.charAt(0) || 'A') : (partner?.name?.charAt(0) || 'B')}
+                                <div className="header-avatar" title={viewMode === 'user1' ? (user?.name || user?.email) : (partner?.name || partner?.email)}>
+                                    {viewMode === 'joint' ? <Users size={18} /> : viewMode === 'user1' ? ((user?.name || user?.email || 'U').charAt(0).toUpperCase()) : ((partner?.name || partner?.email || 'P').charAt(0).toUpperCase())}
                                 </div>
                                 <div className="header-status-indicator"></div>
                             </div>

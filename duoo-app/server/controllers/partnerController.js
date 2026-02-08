@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, Transaction } = require('../models');
 const crypto = require('crypto');
 
 // Generate a unique 6-character code
@@ -86,6 +86,62 @@ exports.unlinkPartner = async (req, res) => {
         await currentUser.save();
 
         res.json({ message: 'Contas desvinculadas com sucesso!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getPartnerSummary = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user.partner_id) {
+            return res.json({ linked: false });
+        }
+
+        const partner = await User.findByPk(user.partner_id);
+
+        // Buscar todas as transações de ambos que tenham split_with_partner = true
+        const sharedTransactions = await Transaction.findAll({
+            where: {
+                user_id: [user.id, partner.id],
+                split_with_partner: true
+            }
+        });
+
+        let userNetBalance = 0; // Positivo: parceiro me deve, Negativo: eu devo ao parceiro
+
+        sharedTransactions.forEach(t => {
+            const amount = parseFloat(t.split_amount || 0);
+
+            if (t.user_id === user.id) {
+                // Eu paguei/recebi
+                if (t.type === 'expense') {
+                    // Despesa: Parceiro me deve a parte dele
+                    userNetBalance += amount;
+                } else {
+                    // Receita: Eu devo a parte dele para ele
+                    userNetBalance -= amount;
+                }
+            } else {
+                // Parceiro pagou/recebeu
+                if (t.type === 'expense') {
+                    // Despesa do parceiro: Eu devo a minha parte para ele
+                    userNetBalance -= amount;
+                } else {
+                    // Receita do parceiro: Ele me deve a minha parte
+                    userNetBalance += amount;
+                }
+            }
+        });
+
+        res.json({
+            linked: true,
+            partnerName: partner.name,
+            userNetBalance: userNetBalance,
+            owesMe: userNetBalance > 0 ? userNetBalance : 0,
+            iOwe: userNetBalance < 0 ? Math.abs(userNetBalance) : 0,
+            transactionCount: sharedTransactions.length
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

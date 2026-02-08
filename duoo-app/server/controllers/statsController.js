@@ -1,4 +1,4 @@
-const { Transaction, User, Category } = require('../models');
+const { Transaction, User, Category, Wallet, Recurring, UserAchievement, Goal } = require('../models');
 const { Op } = require('sequelize');
 
 exports.getStatistics = async (req, res) => {
@@ -205,5 +205,102 @@ exports.getStatistics = async (req, res) => {
     } catch (error) {
         console.error('Error fetching statistics:', error);
         res.status(500).json({ error: 'Failed to fetch statistics' });
+    }
+};
+
+exports.getHealthScore = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findByPk(userId);
+        const partner_id = user.partner_id;
+        const users = [userId];
+        if (partner_id) users.push(partner_id);
+
+        // 1. Saldo Total (Reserva + Metas)
+        // Consideramos que o dinheiro em metas também compõe o patrimônio líquido disponível para emergências
+        const wallets = await Wallet.findAll({ where: { user_id: users } });
+        const walletBalance = wallets.reduce((sum, w) => sum + parseFloat(w.balance), 0);
+
+        const goals = await Goal.findAll({ where: { user_id: users } });
+        const goalsBalance = goals.reduce((sum, g) => sum + parseFloat(g.current_amount), 0);
+
+        const totalBalance = walletBalance + goalsBalance;
+
+        // 2. Média de Gastos Mensais (Últimos 3 meses)
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        const recentExpenses = await Transaction.findAll({
+            where: {
+                user_id: users,
+                type: 'expense',
+                date: { [Op.gte]: threeMonthsAgo }
+            }
+        });
+        const totalRecentExpense = recentExpenses.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0);
+        const avgMonthlyExpense = totalRecentExpense / 3 || 1;
+
+        // 3. Score Components
+        let score = 0;
+        let details = [];
+
+        // A. Reserva de Emergência (30 pts) - Alvo: 6 meses de gastos
+        const monthsReserved = totalBalance / avgMonthlyExpense;
+        let reserveScore = Math.max(0, Math.min(30, (monthsReserved / 6) * 30));
+        score += reserveScore;
+        details.push({
+            label: 'Reserva de Emergência',
+            value: (monthsReserved > 0 ? monthsReserved.toFixed(1) : '0.0') + ' meses',
+            score: reserveScore.toFixed(0),
+            max: 30,
+            status: monthsReserved >= 6 ? 'success' : (monthsReserved >= 3 ? 'warning' : 'danger')
+        });
+
+        // B. Equilíbrio Mensal (40 pts) - Gasto vs Receita nos últimos 30 dias
+        const last30Days = new Date();
+        last30Days.setDate(last30Days.getDate() - 30);
+        const monthTransactions = await Transaction.findAll({
+            where: { user_id: users, date: { [Op.gte]: last30Days } }
+        });
+
+        let monthIncome = 0;
+        let monthExpense = 0;
+        monthTransactions.forEach(t => {
+            if (t.type === 'income') monthIncome += parseFloat(t.amount);
+            else monthExpense += Math.abs(parseFloat(t.amount));
+        });
+
+        const savingsRate = monthIncome > 0 ? ((monthIncome - monthExpense) / monthIncome) * 100 : 0;
+        let budgetScore = Math.min(40, (savingsRate > 0 ? (savingsRate / 20) * 40 : 0));
+        if (budgetScore < 0) budgetScore = 0;
+
+        score += budgetScore;
+        details.push({
+            label: 'Taxa de Poupança',
+            value: (savingsRate > 0 ? savingsRate.toFixed(0) : '0') + '%',
+            score: budgetScore.toFixed(0),
+            max: 40,
+            status: savingsRate >= 20 ? 'success' : (savingsRate > 0 ? 'warning' : 'danger')
+        });
+
+        // C. Gamificação (30 pts) - Baseado em conquistas
+        const achievementsCount = await UserAchievement.count({ where: { user_id: userId } });
+        let gamificationScore = Math.max(0, Math.min(30, (achievementsCount / 5) * 30)); // 5 conquistas = nota máxima
+        score += gamificationScore;
+        details.push({
+            label: 'Engajamento',
+            value: achievementsCount + ' conquistas',
+            score: gamificationScore.toFixed(0),
+            max: 30,
+            status: achievementsCount >= 5 ? 'success' : (achievementsCount >= 2 ? 'warning' : 'danger')
+        });
+
+        res.json({
+            score: Math.round(score),
+            level: score >= 80 ? 'Excelente' : (score >= 60 ? 'Bom' : (score >= 40 ? 'Regular' : 'Crítico')),
+            details
+        });
+    } catch (error) {
+        console.error('Error calculating health score:', error);
+        res.status(500).json({ error: 'Erro ao calcular score de saúde' });
     }
 };

@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
-import { Wallet, ArrowDownCircle, CreditCard, ArrowUpCircle, TrendingUp, ChevronRight, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, FileText, Target, Calculator, Menu as MenuIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { Wallet, ArrowDownCircle, CreditCard, ArrowUpCircle, TrendingUp, ChevronRight, PlusCircle, ShoppingBag, Home, Coffee, Zap, AlertTriangle, FileText, Target, Calculator, Menu as MenuIcon, ArrowUp, ArrowDown, X } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
+import PartnerSummaryCard from '../components/PartnerSummaryCard';
+import QuickNote from '../components/QuickNote';
 
 const Overview = () => {
     const { viewMode } = useOutletContext();
@@ -20,30 +22,46 @@ const Overview = () => {
     const [wallets, setWallets] = useState([]);
     const [selectedWallet, setSelectedWallet] = useState('');
     const [toast, setToast] = useState(null);
+    const [healthScore, setHealthScore] = useState(null);
+    const [showAlert, setShowAlert] = useState(true);
+
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get(`/dashboard`, {
+                params: { viewMode }
+            });
+            setData(response.data);
+
+            // Fetch goals
+            const goalsResponse = await api.get('/goals', {
+                params: { viewMode }
+            });
+            setGoals(goalsResponse.data);
+
+            // Fetch Health Score
+            const healthRes = await api.get('/stats/health');
+            setHealthScore(healthRes.data);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            setLoading(true);
-            try {
-                const response = await api.get(`/dashboard`, {
-                    params: { viewMode }
-                });
-                setData(response.data);
-
-                // Fetch goals
-                const goalsResponse = await api.get('/goals', {
-                    params: { viewMode }
-                });
-                setGoals(goalsResponse.data);
-            } catch (error) {
-                console.error("Failed to fetch dashboard data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchDashboardData();
         fetchWallets();
+    }, [viewMode]);
+
+    useEffect(() => {
+        const handleRefresh = () => {
+            fetchDashboardData();
+            fetchWallets();
+        };
+
+        window.addEventListener('refresh-data', handleRefresh);
+        return () => window.removeEventListener('refresh-data', handleRefresh);
     }, [viewMode]);
 
     const fetchWallets = async () => {
@@ -141,71 +159,174 @@ const Overview = () => {
 
     if (!data) return <div>Erro ao carregar dados.</div>;
 
-    const { balance, balanceVariation, spent, saved, invested, creditCard, nextInvoiceDay, expensesByCategory, transactions } = data;
+    const { balance, balanceVariation, spent, saved, invested, creditCard, nextInvoiceDay, expensesByCategory, transactions, daysSinceLastTransaction } = data;
 
     return (
 
         <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Activity Alert */}
+            {showAlert && daysSinceLastTransaction > 1 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-2xl p-4 flex items-start gap-4 shadow-sm relative animate-in slide-in-from-top-2">
+                    <button
+                        onClick={() => setShowAlert(false)}
+                        className="absolute top-2 right-2 p-1 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
+                    >
+                        <X size={16} />
+                    </button>
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl shrink-0">
+                        <AlertTriangle size={24} />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm mb-1">
+                            Atualize seu Duoo!
+                        </h4>
+                        <p className="text-xs text-amber-700/80 dark:text-amber-300/80 leading-relaxed mb-3">
+                            Faz <strong>{daysSinceLastTransaction} dias</strong> que você não registra nada. Mantenha seus gastos atualizados para evitar surpresas no fim do mês!
+                        </p>
+                        <button
+                            className="text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
+                            onClick={() => document.querySelector('.nav-add-btn')?.click()}
+                        >
+                            Registrar Agora
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* --- MOBILE VIEW --- */}
             <div className="md:hidden space-y-6">
                 {/* Horizontal Scroll Cards */}
                 <div className="horizontal-cards scrollbar-hide">
                     {/* Saldo Disponível */}
-                    <div className="balance-card snap-center">
-                        <div className="balance-card-blob"></div>
-                        <div className="balance-card-header">
-                            <div className="balance-card-icon"><Wallet size={20} /></div>
-                            <span className="balance-card-badge flex items-center gap-1">
+                    {/* Saldo Disponível */}
+                    <div className="balance-card snap-center w-64 md:w-auto h-40 flex flex-col justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                                <Wallet size={20} />
+                            </div>
+                            <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${balanceVariation >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                                }`}>
                                 {balanceVariation >= 0 ? <ArrowUp size={12} strokeWidth={3} /> : <ArrowDown size={12} strokeWidth={3} />}
                                 {balanceVariation ? Math.abs(balanceVariation).toFixed(1) : '0.0'}%
                             </span>
                         </div>
-                        <div className="balance-card-info">
-                            <p className="balance-card-label">Saldo Disponível</p>
-                            <h3 className="balance-card-amount">R$ {parseFloat(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Saldo Disponível</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                                R$ {parseFloat(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </h3>
                         </div>
                     </div>
 
                     {/* Gastos Mês */}
-                    <div className="stat-card snap-center">
-                        <div className="stat-card-icon expense"><ArrowDownCircle size={20} /></div>
-                        <div className="mt-auto">
-                            <p className="stat-card-label">Gastos Mês</p>
-                            <h3 className="stat-card-value">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    {/* Gastos Mês */}
+                    <div className="stat-card snap-center w-64 md:w-auto h-40 flex flex-col justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                        <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                            <ArrowDownCircle size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Gastos Mês</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
                     {/* Fatura Atual */}
-                    <div className="stat-card snap-center">
-                        <div className="stat-card-icon credit"><CreditCard size={20} /></div>
-                        <div className="mt-auto">
-                            <p className="stat-card-label">Fatura Atual</p>
-                            <h3 className="stat-card-value">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    {/* Fatura Atual */}
+                    <div className="stat-card snap-center w-64 md:w-auto h-40 flex flex-col justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                        <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                            <CreditCard size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Fatura Atual</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
                     {/* Economizado */}
-                    <div className="stat-card snap-center">
-                        <div className="stat-card-icon" style={{ backgroundColor: '#dbeafe', color: '#2563eb' }}><ArrowUpCircle size={20} /></div>
-                        <div className="mt-auto">
-                            <p className="stat-card-label">Economizado</p>
-                            <h3 className="stat-card-value">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    {/* Economizado */}
+                    <div className="stat-card snap-center w-64 md:w-auto h-40 flex flex-col justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <ArrowUpCircle size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Economizado</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
                     {/* Total Guardado/Investido */}
-                    <div className="stat-card snap-center">
-                        <div className="stat-card-icon" style={{ backgroundColor: '#e0e7ff', color: '#4f46e5' }}><TrendingUp size={20} /></div>
-                        <div className="mt-auto">
-                            <p className="stat-card-label">Total Guardado</p>
-                            <h3 className="stat-card-value">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    {/* Total Guardado/Investido */}
+                    <div className="stat-card snap-center w-64 md:w-auto h-40 flex flex-col justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                            <TrendingUp size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Total Guardado</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
                 </div>
 
+                {/* Health & Partner Hub Mobile */}
+                <div className="grid grid-cols-1 gap-4">
+                    {healthScore && (
+                        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-md overflow-hidden relative">
+                            {/* Header Section */}
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 className="font-bold text-lg text-slate-900 dark:text-white">Saúde Financeira</h4>
+                                    <div className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${healthScore.score >= 80 ? 'bg-emerald-100 text-emerald-700' :
+                                        (healthScore.score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')
+                                        }`}>
+                                        {healthScore.level}
+                                    </div>
+                                </div>
+                                <div className="relative w-14 h-14 flex-shrink-0">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100 dark:text-slate-800" />
+                                        <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent"
+                                            strokeDasharray={150.8}
+                                            strokeDashoffset={150.8 - (Math.max(0, healthScore.score) / 100) * 150.8}
+                                            strokeLinecap="round"
+                                            className={healthScore.score >= 80 ? 'text-emerald-500' : (healthScore.score >= 50 ? 'text-amber-500' : 'text-rose-500')}
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-slate-900 dark:text-white">
+                                        {healthScore.score}
+                                    </div>
+                                </div>
+                            </div>
 
+                            {/* Metrics Section - Vertical Stack */}
+                            <div className="space-y-3">
+                                {healthScore.details.map((detail, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex justify-between items-end text-xs mb-1">
+                                            <span className="text-slate-500 dark:text-slate-400 font-medium">{detail.label}</span>
+                                            <span className={`font-bold ${detail.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' :
+                                                (detail.status === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400')
+                                                }`}>
+                                                {detail.value}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${detail.status === 'success' ? 'bg-emerald-500' :
+                                                    (detail.status === 'warning' ? 'bg-amber-500' : 'bg-rose-500')
+                                                    }`}
+                                                style={{ width: `${(detail.score / detail.max) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    )}
+
+                    <PartnerSummaryCard />
+                    <QuickNote />
+                </div>
 
                 {/* Categories Mobile */}
                 <div className="space-y-4">
@@ -261,6 +382,62 @@ const Overview = () => {
 
             {/* --- DESKTOP VIEW --- */}
             <div className="hidden md:block space-y-8">
+                {/* Health Score Desktop */}
+                {healthScore && (
+                    <Card className="bg-gradient-to-r from-emerald-50 via-white to-white dark:from-emerald-900/10 dark:via-slate-900 dark:to-slate-900 border-emerald-100 dark:border-emerald-900/30">
+                        <div className="flex items-center gap-8">
+                            <div className="flex flex-col items-center text-center">
+                                <div className="relative w-32 h-32">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-800" />
+                                        <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="10" fill="transparent"
+                                            strokeDasharray={364.4}
+                                            strokeDashoffset={364.4 - (healthScore.score / 100) * 364.4}
+                                            strokeLinecap="round"
+                                            className={healthScore.score >= 80 ? 'text-emerald-500' : (healthScore.score >= 50 ? 'text-orange-500' : 'text-rose-500')}
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-3xl font-black text-slate-900 dark:text-white">{healthScore.score}</span>
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Score</span>
+                                    </div>
+                                </div>
+                                <div className={`mt-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${healthScore.score >= 80 ? 'bg-emerald-100 text-emerald-700' : (healthScore.score >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-rose-100 text-rose-700')
+                                    }`}>
+                                    Status: {healthScore.level}
+                                </div>
+                            </div>
+
+                            <div className="flex-1 grid grid-cols-3 gap-6">
+                                {healthScore.details.map((detail, idx) => (
+                                    <div key={idx} className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-slate-500 font-medium">{detail.label}</span>
+                                            <span className={`font-bold ${detail.status === 'success' ? 'text-emerald-500' : (detail.status === 'warning' ? 'text-orange-500' : 'text-rose-500')}`}>
+                                                {detail.value}
+                                            </span>
+                                        </div>
+                                        <ProgressBar progress={(parseInt(detail.score) / detail.max) * 100} colorClass={detail.status === 'success' ? 'bg-emerald-500' : (detail.status === 'warning' ? 'bg-orange-500' : 'bg-rose-500')} height="h-1.5" />
+                                        <p className="text-[10px] text-slate-400">Peso: {detail.score}/{detail.max} pts</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="hidden lg:block w-64 p-4 border-l border-slate-100 dark:border-slate-800">
+                                <h5 className="text-xs font-bold text-slate-900 dark:text-white mb-2 ml-1">Análise do Duoo 🤖</h5>
+                                <p className="text-[11px] text-slate-500 italic leading-relaxed">
+                                    {healthScore.score >= 80
+                                        ? "Sensacional! Suas reservas estão sólidas e seu hábito de poupança está acima da média. Continue assim!"
+                                        : healthScore.score >= 50
+                                            ? "Bom caminho. Foque em aumentar sua reserva de emergência para chegar ao nível Excelente."
+                                            : "Atenção necessária. Tente reduzir gastos variáveis para reequilibrar seu fluxo mensal."
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    </Card>
+                )}
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     <Card>
@@ -391,6 +568,9 @@ const Overview = () => {
 
                     {/* Right Column (Goals & Tips) */}
                     <div className="space-y-8">
+                        <PartnerSummaryCard />
+                        <QuickNote />
+
                         <Card>
                             <div className="flex items-center justify-between mb-6">
                                 <h4 className="font-bold text-lg">Metas de Poupança</h4>
