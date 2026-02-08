@@ -16,6 +16,9 @@ ENV DB_STORAGE=/data/database.sqlite
 ENV NODE_ENV=production
 ENV PORT=8080
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 # Install Server Dependencies
 COPY server/package*.json ./server/
 WORKDIR /app/server

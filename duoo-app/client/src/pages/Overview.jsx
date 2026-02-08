@@ -40,7 +40,9 @@ const Overview = () => {
             setGoals(goalsResponse.data);
 
             // Fetch Health Score
-            const healthRes = await api.get('/stats/health');
+            const healthRes = await api.get('/stats/health', {
+                params: { viewMode }
+            });
             setHealthScore(healthRes.data);
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error);

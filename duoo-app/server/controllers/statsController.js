@@ -210,14 +210,32 @@ exports.getStatistics = async (req, res) => {
 
 exports.getHealthScore = async (req, res) => {
     try {
+        const { viewMode } = req.query;
         const userId = req.user.id;
         const user = await User.findByPk(userId);
         const partner_id = user.partner_id;
-        const users = [userId];
-        if (partner_id) users.push(partner_id);
+
+        let users = [userId];
+        let targetUserId = userId; // For achievements/engagement
+
+        if (viewMode === 'user1') {
+            users = [userId];
+            targetUserId = userId;
+        } else if (viewMode === 'user2') {
+            if (partner_id) {
+                users = [partner_id];
+                targetUserId = partner_id;
+            } else {
+                return res.json({ score: 0, level: 'N/A', details: [] });
+            }
+        } else {
+            // Joint
+            if (partner_id) users.push(partner_id);
+            // For engagement in joint mode, we'll take the sum or average?
+            // Let's take the count of distinct achievements achieved by the couple
+        }
 
         // 1. Saldo Total (Reserva + Metas)
-        // Consideramos que o dinheiro em metas também compõe o patrimônio líquido disponível para emergências
         const wallets = await Wallet.findAll({ where: { user_id: users } });
         const walletBalance = wallets.reduce((sum, w) => sum + parseFloat(w.balance), 0);
 
@@ -237,7 +255,7 @@ exports.getHealthScore = async (req, res) => {
             }
         });
         const totalRecentExpense = recentExpenses.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0);
-        const avgMonthlyExpense = totalRecentExpense / 3 || 1;
+        const avgMonthlyExpense = (totalRecentExpense / 3) || 1;
 
         // 3. Score Components
         let score = 0;
@@ -283,8 +301,19 @@ exports.getHealthScore = async (req, res) => {
         });
 
         // C. Gamificação (30 pts) - Baseado em conquistas
-        const achievementsCount = await UserAchievement.count({ where: { user_id: userId } });
-        let gamificationScore = Math.max(0, Math.min(30, (achievementsCount / 5) * 30)); // 5 conquistas = nota máxima
+        let achievementsCount;
+        if (viewMode === 'joint') {
+            // Count unique achievements reached by at least one member of the couple
+            achievementsCount = await UserAchievement.count({
+                where: { user_id: users },
+                distinct: true,
+                col: 'achievement_id'
+            });
+        } else {
+            achievementsCount = await UserAchievement.count({ where: { user_id: targetUserId } });
+        }
+
+        let gamificationScore = Math.max(0, Math.min(30, (achievementsCount / 5) * 30));
         score += gamificationScore;
         details.push({
             label: 'Engajamento',
