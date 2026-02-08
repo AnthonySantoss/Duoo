@@ -1,4 +1,4 @@
-const { Transaction, Wallet, User } = require('../models');
+const { Transaction, Wallet, User, CreditCardPurchase, CreditCard } = require('../models');
 const { Op } = require('sequelize');
 const budgetAlertService = require('../services/budgetAlertService');
 const achievementService = require('../services/achievementService');
@@ -23,76 +23,39 @@ exports.getTransactions = async (req, res) => {
         const userId = req.user.id;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get user to check for partner
+        // 1. Identificar Usuários (Modo Conjunto vs Individual)
         const user = await User.findByPk(userId);
-        let whereClause = {};
+        let userFilter = [userId];
 
-        // Filter by viewMode
-        if (viewMode === 'user1') {
-            whereClause.user_id = userId;
+        if (viewMode === 'joint' && user.partner_id) {
+            userFilter.push(user.partner_id);
         } else if (viewMode === 'user2' && user.partner_id) {
-            whereClause.user_id = user.partner_id;
-        } else if (viewMode === 'joint') {
-            const partnerIds = [userId];
-            if (user.partner_id) {
-                partnerIds.push(user.partner_id);
-            }
-            whereClause.user_id = { [Op.in]: partnerIds };
-        } else {
-            whereClause.user_id = userId;
+            userFilter = [user.partner_id];
         }
 
-        // Search filter
+        // 2. Configurar Filtros para Transações Bancárias (Tabela Transaction)
+        let transWhere = { user_id: { [Op.in]: userFilter } };
+
+        // Filtro de Busca (Título ou Categoria)
         if (search) {
-            whereClause[Op.or] = [
+            transWhere[Op.or] = [
                 { title: { [Op.like]: `%${search}%` } },
                 { category: { [Op.like]: `%${search}%` } }
             ];
         }
 
-        // Year filter
+        // Filtro de Ano
         if (year && year !== 'all') {
             const startYear = new Date(`${year}-01-01T00:00:00.000Z`);
             const endYear = new Date(`${year}-12-31T23:59:59.999Z`);
-
-            // If startDate/endDate is also present, we need to intersect
-            // But for simplicity, year filter overrides date range or operates alongside it
-            // If date filter is not set, use year
-            if (!startDate && !endDate && !whereClause.date) {
-                whereClause.date = { [Op.between]: [startYear, endYear] };
-            }
+            transWhere.date = { [Op.between]: [startYear, endYear] };
         }
 
-        // Category filter
-        if (category && category !== 'all') {
-            whereClause.category = category;
-        }
+        // Outros Filtros
+        if (category && category !== 'all') transWhere.category = category;
+        if (type && type !== 'all') transWhere.type = type;
 
-        // Type filter
-        if (type && type !== 'all') {
-            whereClause.type = type;
-        }
-
-        // Amount filters (Absolute value logic)
-        // Note: We need the sequelize instance to use fn('ABS')
-        // Assuming sequelize is available in models/index.js (we need to require it at top of file, but let's assume standard simple filtering for now is better if we don't want to break imports yet)
-        // Actually, let's keep it simple: Positive/Negative filter is handled by 'type'.
-        // minAmount/maxAmount usually refers to MAGNITUDE in the frontend filters.
-        if (minAmount || maxAmount) {
-            const { sequelize } = require('../models');
-            const absAmount = sequelize.fn('ABS', sequelize.col('amount'));
-
-            const amountWhere = {};
-            if (minAmount) amountWhere[Op.gte] = parseFloat(minAmount);
-            if (maxAmount) amountWhere[Op.lte] = parseFloat(maxAmount);
-
-            whereClause[Op.and] = [
-                ...(whereClause[Op.and] || []),
-                sequelize.where(absAmount, amountWhere)
-            ];
-        }
-
-        // Date Range filters
+        // Filtro de Data Personalizado
         if (startDate || endDate) {
             const dateFilter = {};
             if (startDate) dateFilter[Op.gte] = new Date(startDate);
@@ -101,32 +64,104 @@ exports.getTransactions = async (req, res) => {
                 end.setHours(23, 59, 59, 999);
                 dateFilter[Op.lte] = end;
             }
-
-            // If year was set, verify intersection? 
-            // We overwrite year logic if specific dates are provided, or use logic AND.
-            // Let's simplified: specific dates take precedence or just overwrite 'date' field in whereClause
-            whereClause.date = dateFilter;
+            transWhere.date = dateFilter;
         }
 
-        const { count, rows } = await Transaction.findAndCountAll({
-            where: whereClause,
+        // Filtro de Valor (Min/Max)
+        if (minAmount || maxAmount) {
+            const { sequelize } = require('../models');
+            const absAmount = sequelize.fn('ABS', sequelize.col('amount'));
+            const amountWhere = {};
+            if (minAmount) amountWhere[Op.gte] = parseFloat(minAmount);
+            if (maxAmount) amountWhere[Op.lte] = parseFloat(maxAmount);
+            transWhere[Op.and] = [...(transWhere[Op.and] || []), sequelize.where(absAmount, amountWhere)];
+        }
+
+        // 3. Buscar Transações Bancárias
+        const bankTransactions = await Transaction.findAll({
+            where: transWhere,
             include: [
                 { model: Wallet, attributes: ['name', 'type'] },
                 { model: User, attributes: ['name'] }
             ],
-            order: [['date', 'DESC'], ['createdAt', 'DESC']],
-            limit: parseInt(limit),
-            offset: offset
+            order: [['date', 'DESC']]
         });
 
+        // 4. Configurar Filtros para Compras no Crédito (Tabela CreditCardPurchase)
+        // Nota: Só buscamos no crédito se o filtro de tipo permitir 'expense' (pois crédito é sempre despesa)
+        let ccPurchases = [];
+        if (!type || type === 'all' || type === 'expense') {
+            let ccWhere = {
+                // Sincronizar filtro de data
+                purchase_date: transWhere.date || { [Op.ne]: null }
+            };
+
+            // Filtro de Busca
+            if (search) {
+                ccWhere[Op.or] = [
+                    { description: { [Op.like]: `%${search}%` } },
+                    { category: { [Op.like]: `%${search}%` } }
+                ];
+            }
+
+            if (category && category !== 'all') ccWhere.category = category;
+
+            // Filtro de Valor
+            if (minAmount || maxAmount) {
+                const amountWhere = {};
+                if (minAmount) amountWhere[Op.gte] = parseFloat(minAmount);
+                if (maxAmount) amountWhere[Op.lte] = parseFloat(maxAmount);
+                ccWhere.total_amount = amountWhere;
+            }
+
+            // Buscar Compras
+            ccPurchases = await CreditCardPurchase.findAll({
+                where: ccWhere,
+                include: [{
+                    model: CreditCard,
+                    where: { user_id: { [Op.in]: userFilter } },
+                    attributes: ['name'] // Nome do cartão será o nome da "Carteira"
+                }],
+                order: [['purchase_date', 'DESC']]
+            });
+        }
+
+        // 5. Unificar e Normalizar Dados
+        // Transforma compras de crédito para o formato de transação
+        const normalizedCC = ccPurchases.map(cc => ({
+            id: `cc_${cc.id}`, // Prefixo para ID único
+            title: cc.description,
+            amount: -Math.abs(parseFloat(cc.total_amount)), // Valor negativo (Despesa)
+            category: cc.category,
+            date: cc.purchase_date,
+            type: 'expense', // Visualmente é uma despesa
+            isCreditCard: true, // Flag para frontend se necessário
+            Wallet: { name: cc.CreditCard ? cc.CreditCard.name : 'Cartão de Crédito', type: 'credit_card' },
+            User: { name: 'Cartão' }
+        }));
+
+        // Converter transações do Sequelize para JSON puro
+        const normalizedBank = bankTransactions.map(t => t.toJSON());
+
+        // Combinar as duas listas
+        let allTransactions = [...normalizedBank, ...normalizedCC];
+
+        // 6. Ordenação Final (Data Decrescente)
+        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // 7. Paginação em Memória (Slice)
+        const totalItems = allTransactions.length;
+        const paginatedTransactions = allTransactions.slice(offset, offset + parseInt(limit));
+
         res.json({
-            transactions: rows,
-            totalItems: count,
-            totalPages: Math.ceil(count / limit),
+            transactions: paginatedTransactions,
+            totalItems: totalItems,
+            totalPages: Math.ceil(totalItems / limit),
             currentPage: parseInt(page)
         });
+
     } catch (error) {
-        console.error('Error in getTransactions:', error);
+        console.error('Erro em getTransactions unificado:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -200,6 +235,13 @@ exports.updateTransaction = async (req, res) => {
         const { id } = req.params;
         const { title, amount, category, date, type } = req.body;
 
+        // Bloquear edição de compras de cartão por esta rota por enquanto
+        if (String(id).startsWith('cc_')) {
+            return res.status(400).json({
+                error: 'Para editar compras de crédito, utilize a seção de Cartões.'
+            });
+        }
+
         const transaction = await Transaction.findByPk(id, { include: [Wallet] });
         if (!transaction) {
             return res.status(404).json({ error: 'Transação não encontrada' });
@@ -238,6 +280,35 @@ exports.deleteTransaction = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // 1. Tratamento para Compras de Cartão de Crédito
+        if (String(id).startsWith('cc_')) {
+            const realId = id.replace('cc_', '');
+
+            // Buscar a compra
+            const purchase = await CreditCardPurchase.findByPk(realId, {
+                include: [{ model: CreditCard }]
+            });
+
+            if (!purchase) {
+                return res.status(404).json({ error: 'Compra de cartão não encontrada' });
+            }
+
+            // Verificar permissão
+            const userId = req.user.id;
+            const user = await User.findByPk(userId);
+            const allowedUsers = [userId];
+            if (user.partner_id) allowedUsers.push(user.partner_id);
+
+            if (!allowedUsers.includes(purchase.CreditCard.user_id)) {
+                return res.status(403).json({ error: 'Sem permissão para excluir esta compra' });
+            }
+
+            // Excluir compra (sem afetar saldo de carteira, pois é crédito)
+            await purchase.destroy();
+            return res.json({ message: 'Compra de cartão excluída com sucesso' });
+        }
+
+        // 2. Fluxo Padrão (Transação Bancária)
         const transaction = await Transaction.findByPk(id, { include: [Wallet] });
         if (!transaction) {
             return res.status(404).json({ error: 'Transação não encontrada' });

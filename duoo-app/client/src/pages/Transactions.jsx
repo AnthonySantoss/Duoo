@@ -17,6 +17,7 @@ const Transactions = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [wallets, setWallets] = useState([]);
+    const [creditCards, setCreditCards] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [toast, setToast] = useState(null);
@@ -47,7 +48,9 @@ const Transactions = () => {
         category: 'Alimentação',
         date: new Date().toISOString().split('T')[0],
         type: 'expense',
-        wallet_id: ''
+        wallet_id: '',
+        credit_card_id: '',
+        installments: 1
     });
 
     useEffect(() => {
@@ -60,6 +63,7 @@ const Transactions = () => {
 
     useEffect(() => {
         fetchWallets();
+        fetchCreditCards();
     }, []);
 
     // Resetar para página 1 quando filtros mudam
@@ -108,6 +112,19 @@ const Transactions = () => {
             }
         } catch (error) {
             console.error('Failed to fetch wallets:', error);
+        }
+    };
+
+    const fetchCreditCards = async () => {
+        try {
+            // Fetch only logged user's cards (and joint cards)
+            const res = await api.get('/credit-cards?viewMode=user1');
+            setCreditCards(res.data);
+            if (res.data.length > 0) {
+                setFormData(prev => ({ ...prev, credit_card_id: res.data[0].id }));
+            }
+        } catch (error) {
+            console.error('Failed to fetch credit cards:', error);
         }
     };
 
@@ -167,8 +184,8 @@ const Transactions = () => {
     };
 
     const handleOpenModal = (transaction = null) => {
-        if (!transaction && wallets.length === 0) {
-            setToast({ message: 'É necessário criar uma carteira antes de adicionar uma transação.', type: 'info' });
+        if (!transaction && wallets.length === 0 && creditCards.length === 0) {
+            setToast({ message: 'É necessário criar uma carteira ou cartão antes de adicionar uma transação.', type: 'info' });
             return;
         }
 
@@ -180,7 +197,9 @@ const Transactions = () => {
                 category: transaction.category,
                 date: transaction.date,
                 type: parseFloat(transaction.amount) < 0 ? 'expense' : 'income',
-                wallet_id: transaction.wallet_id
+                wallet_id: transaction.wallet_id,
+                credit_card_id: creditCards[0]?.id || '',
+                installments: 1
             });
         } else {
             setEditingTransaction(null);
@@ -190,7 +209,9 @@ const Transactions = () => {
                 category: 'Alimentação',
                 date: new Date().toISOString().split('T')[0],
                 type: 'expense',
-                wallet_id: wallets[0]?.id || ''
+                wallet_id: wallets[0]?.id || '',
+                credit_card_id: creditCards[0]?.id || '',
+                installments: 1
             });
         }
         setIsModalOpen(true);
@@ -199,6 +220,49 @@ const Transactions = () => {
     const handleSave = async (e) => {
         e.preventDefault();
 
+        // Separate logic for Credit Card Purchase
+        if (formData.type === 'credit') {
+            if (!formData.credit_card_id) {
+                setToast({ message: 'Selecione um Cartão de Crédito', type: 'error' });
+                return;
+            }
+
+            try {
+                await api.post(`/credit-cards/${formData.credit_card_id}/purchases`, {
+                    description: formData.title,
+                    total_amount: parseFloat(formData.amount),
+                    installments: parseInt(formData.installments),
+                    purchase_date: formData.date,
+                    category: formData.category
+                });
+
+                setIsModalOpen(false);
+                setToast({ message: 'Compra no crédito adicionada com sucesso!', type: 'success' });
+
+                // Reset form
+                setFormData({
+                    title: '',
+                    amount: '',
+                    category: 'Alimentação',
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'expense',
+                    wallet_id: wallets[0]?.id || '',
+                    credit_card_id: creditCards[0]?.id || '',
+                    installments: 1
+                });
+
+                // Note: The main transaction list won't update automatically as these are in a different table.
+                // We could fetchTransactions() but it won't show the new item.
+                // Optionally show a info toast or trigger a refresh if we unify the lists later.
+
+            } catch (error) {
+                console.error('Failed to save credit purchase:', error);
+                setToast({ message: error.response?.data?.error || 'Erro ao salvar compra', type: 'error' });
+            }
+            return;
+        }
+
+        // Logic for Standard Transactions (Income/Expense)
         const numAmount = parseFloat(formData.amount);
         const finalAmount = formData.type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
 
@@ -238,7 +302,9 @@ const Transactions = () => {
                 category: 'Alimentação',
                 date: new Date().toISOString().split('T')[0],
                 type: 'expense',
-                wallet_id: wallets[0]?.id || ''
+                wallet_id: wallets[0]?.id || '',
+                credit_card_id: creditCards[0]?.id || '',
+                installments: 1
             });
         } catch (error) {
             console.error('Failed to save transaction:', error);
@@ -505,7 +571,14 @@ const Transactions = () => {
                                     {getCategoryIcon(item.category)}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-900 dark:text-white">{item.title}</h4>
+                                    <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                        {item.title}
+                                        {item.isCreditCard && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider border border-amber-200 dark:border-amber-800">
+                                                Crédito
+                                            </span>
+                                        )}
+                                    </h4>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">{item.category}</span>
                                         <span className="text-xs text-slate-400">•</span>
@@ -628,12 +701,14 @@ const Transactions = () => {
                                 onChange={e => setFormData({
                                     ...formData,
                                     type: e.target.value,
-                                    category: e.target.value === 'expense' ? 'Alimentação' : 'Salário'
+                                    category: e.target.value === 'expense' || e.target.value === 'credit' ? 'Alimentação' : 'Salário'
                                 })}
+                                disabled={!!editingTransaction}
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             >
                                 <option value="expense">Despesa</option>
                                 <option value="income">Receita</option>
+                                <option value="credit">Crédito</option>
                             </select>
                         </div>
                         <div>
@@ -643,7 +718,7 @@ const Transactions = () => {
                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             >
-                                {formData.type === 'expense' ? (
+                                {(formData.type === 'expense' || formData.type === 'credit') ? (
                                     <>
                                         <option>Alimentação</option>
                                         <option>Lazer</option>
@@ -669,21 +744,63 @@ const Transactions = () => {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Carteira</label>
-                        <select
-                            value={formData.wallet_id}
-                            onChange={e => setFormData({ ...formData, wallet_id: e.target.value })}
-                            required
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                            {wallets.map(wallet => (
-                                <option key={wallet.id} value={wallet.id}>
-                                    {wallet.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {formData.type === 'credit' ? (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cartão de Crédito</label>
+                                <select
+                                    value={formData.credit_card_id}
+                                    onChange={e => setFormData({ ...formData, credit_card_id: e.target.value })}
+                                    required
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    {creditCards.length === 0 && <option value="">Nenhum cartão encontrado</option>}
+                                    {creditCards.map(card => (
+                                        <option key={card.id} value={card.id}>
+                                            {card.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Parcelas</label>
+                                <select
+                                    value={formData.installments}
+                                    onChange={e => setFormData({ ...formData, installments: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    <option value="1">À vista (1x)</option>
+                                    <option value="2">2x</option>
+                                    <option value="3">3x</option>
+                                    <option value="4">4x</option>
+                                    <option value="5">5x</option>
+                                    <option value="6">6x</option>
+                                    <option value="7">7x</option>
+                                    <option value="8">8x</option>
+                                    <option value="9">9x</option>
+                                    <option value="10">10x</option>
+                                    <option value="11">11x</option>
+                                    <option value="12">12x</option>
+                                </select>
+                            </div>
+                        </>
+                    ) : (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Carteira</label>
+                            <select
+                                value={formData.wallet_id}
+                                onChange={e => setFormData({ ...formData, wallet_id: e.target.value })}
+                                required
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                {wallets.map(wallet => (
+                                    <option key={wallet.id} value={wallet.id}>
+                                        {wallet.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30 mt-2">
                         {editingTransaction ? 'Atualizar Transação' : 'Salvar Transação'}

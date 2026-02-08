@@ -17,6 +17,7 @@ import Forecast from './pages/Forecast';
 import Statement from './pages/Statement';
 import Investments from './pages/Investments';
 import EconomyForecast from './pages/EconomyForecast';
+import Recurring from './pages/Recurring';
 import MobileMenu from './pages/MobileMenu';
 
 import { useAuth } from './context/AuthContext';
@@ -59,6 +60,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="achievements" element={<Achievements />} />
               <Route path="economy-forecast" element={<EconomyForecast />} />
+              <Route path="recurring" element={<Recurring />} />
               <Route path="menu" element={<MobileMenu />} />
 
               {/* Fallback for other routes */}

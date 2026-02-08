@@ -199,7 +199,7 @@ exports.deleteCreditCard = async (req, res) => {
 exports.addPurchase = async (req, res) => {
     try {
         const { credit_card_id } = req.params;
-        const { description, total_amount, installments, purchase_date } = req.body;
+        const { description, total_amount, installments, purchase_date, category } = req.body;
 
         const creditCard = await CreditCard.findByPk(credit_card_id);
         if (!creditCard) {
@@ -218,6 +218,7 @@ exports.addPurchase = async (req, res) => {
 
         const purchase = await CreditCardPurchase.create({
             description,
+            category: category || 'Outros',
             total_amount: parseFloat(total_amount),
             installments: parseInt(installments),
             installment_amount: installmentAmount,

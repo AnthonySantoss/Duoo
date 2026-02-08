@@ -224,17 +224,21 @@ const DashboardLayout = () => {
                     <span className="nav-btn-indicator"></span>
                 </Link>
 
-                <button
-                    className="nav-add-btn group"
-                    onClick={() => setIsTransactionModalOpen(true)}
-                >
-                    <div className="nav-add-btn-inner">
-                        <PlusCircle size={28} className="nav-add-icon" />
-                    </div>
-                    <div className="nav-add-label">
-                        Lançar
-                    </div>
-                </button>
+                {!location.pathname.includes('/recurring') ? (
+                    <button
+                        className="nav-add-btn group"
+                        onClick={() => setIsTransactionModalOpen(true)}
+                    >
+                        <div className="nav-add-btn-inner">
+                            <PlusCircle size={28} className="nav-add-icon" />
+                        </div>
+                        <div className="nav-add-label">
+                            Lançar
+                        </div>
+                    </button>
+                ) : (
+                    <div className="w-[72px]" aria-hidden="true" />
+                )}
 
                 <Link
                     to="/dashboard/goals"

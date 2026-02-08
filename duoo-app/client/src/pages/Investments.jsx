@@ -299,7 +299,11 @@ const CreditCards = () => {
                                 !inv.paid
                             );
 
-                            const currentDebt = currentMonthInvoice ? parseFloat(currentMonthInvoice.amount || 0) : 0;
+                            const purchaseDebt = parseFloat(card.monthly_amount || 0);
+                            const manualDebt = currentMonthInvoice ? parseFloat(currentMonthInvoice.amount || 0) : 0;
+
+                            // Prefer calculated debt from purchases if available, otherwise fallback to manual invoice
+                            const currentDebt = purchaseDebt > 0 ? purchaseDebt : manualDebt;
                             const limit = parseFloat(card.limit || 0);
                             const usagePercent = limit > 0 ? Math.min(100, (currentDebt / limit) * 100) : 0;
                             const available = Math.max(0, limit - currentDebt);

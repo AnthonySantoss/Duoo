@@ -13,7 +13,8 @@ import {
     Wallet,
     Building2,
     TrendingUp,
-    Trophy
+    Trophy,
+    CalendarRange
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,6 +32,7 @@ const MobileMenu = () => {
         { title: "Previsão", icon: <TrendingUp className="text-teal-500" size={24} />, desc: "Economia futura", path: '/dashboard/economy-forecast' },
         { title: "Conquistas", icon: <Trophy className="text-amber-500" size={24} />, desc: "Suas medalhas", path: '/dashboard/achievements' },
         { title: "Vincular", icon: <LinkIcon className="text-slate-500" size={24} />, desc: "Conectar parceiro", path: '/dashboard/link-accounts' },
+        { title: "Recorrência", icon: <CalendarRange className="text-orange-500" size={24} />, desc: "Receitas fixas", path: '/dashboard/recurring' },
     ];
 
     return (

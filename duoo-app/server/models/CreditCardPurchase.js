@@ -11,6 +11,10 @@ const CreditCardPurchase = sequelize.define('CreditCardPurchase', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    category: {
+        type: DataTypes.STRING,
+        defaultValue: 'Outros'
+    },
     total_amount: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false

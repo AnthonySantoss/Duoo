@@ -42,6 +42,7 @@ app.use('/api/category', categoryRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/recurring', require('./routes/recurringRoutes'));
 
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');

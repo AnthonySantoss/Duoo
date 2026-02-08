@@ -67,6 +67,11 @@ AlertNotification.belongsTo(BudgetAlert, { foreignKey: 'alert_id' });
 User.hasMany(Notification, { foreignKey: 'user_id' });
 Notification.belongsTo(User, { foreignKey: 'user_id' });
 
+const Recurring = require('./Recurring');
+
+User.hasMany(Recurring, { foreignKey: 'user_id' });
+Recurring.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -83,5 +88,6 @@ module.exports = {
     UserAchievement,
     BudgetAlert,
     AlertNotification,
-    Notification
+    Notification,
+    Recurring
 };
