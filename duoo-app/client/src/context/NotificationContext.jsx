@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
 import NotificationModal from '../components/ui/NotificationModal';
+import NotificationPermissionBanner from '../components/ui/NotificationPermissionBanner';
+import browserNotificationService from '../services/browserNotificationService';
 
 const NotificationContext = createContext();
 
@@ -34,6 +36,9 @@ export const NotificationProvider = ({ children }) => {
                 setPopupNotification(newPopup);
                 setSeenPopups((prev) => new Set([...prev, newPopup.id]));
 
+                // Enviar notificação do navegador
+                await browserNotificationService.sendFromBackendNotification(newPopup);
+
                 // Immediately mark as notified on backend so it doesn't show again on reload
                 await api.put(`/notifications/${newPopup.id}/notified`);
             }
@@ -62,10 +67,25 @@ export const NotificationProvider = ({ children }) => {
         setPopupNotification(null);
     };
 
+    const requestBrowserNotificationPermission = async () => {
+        return await browserNotificationService.requestPermission();
+    };
+
+    const isBrowserNotificationEnabled = () => {
+        return browserNotificationService.isEnabled();
+    };
+
+    const setBrowserNotificationEnabled = (enabled) => {
+        browserNotificationService.setEnabled(enabled);
+    };
+
     return (
         <NotificationContext.Provider
             value={{
-                checkNotifications
+                checkNotifications,
+                requestBrowserNotificationPermission,
+                isBrowserNotificationEnabled,
+                setBrowserNotificationEnabled
             }}
         >
             {children}
@@ -75,6 +95,7 @@ export const NotificationProvider = ({ children }) => {
                     onClose={closePopup}
                 />
             )}
+            <NotificationPermissionBanner />
         </NotificationContext.Provider>
     );
 };

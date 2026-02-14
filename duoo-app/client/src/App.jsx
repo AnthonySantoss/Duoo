@@ -20,6 +20,7 @@ import Investments from './pages/Investments';
 import EconomyForecast from './pages/EconomyForecast';
 import Recurring from './pages/Recurring';
 import MobileMenu from './pages/MobileMenu';
+import PWAInstallPrompt from './components/ui/PWAInstallPrompt';
 
 import { useAuth } from './context/AuthContext';
 
@@ -71,6 +72,7 @@ function App() {
 
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
+            <PWAInstallPrompt />
           </BrowserRouter>
         </NotificationProvider>
       </AchievementProvider>

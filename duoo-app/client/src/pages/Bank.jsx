@@ -93,7 +93,7 @@ const Bank = () => {
 
         // Buscar transações compatíveis
         try {
-            const res = await api.get('/loans/compatible-transactions', {
+            const res = await api.get('/loans/search/compatible-transactions', {
                 params: {
                     amount: loanForm.amount,
                     days: 7
@@ -338,6 +338,20 @@ const Bank = () => {
                     </div>
                 </div>
             </Modal>
+
+            {/* Modal de Confirmação de Saque */}
+            <ConfirmModal
+                isOpen={withdrawConfirmOpen}
+                onClose={() => setWithdrawConfirmOpen(false)}
+                onConfirm={async () => {
+                    setWithdrawConfirmOpen(false);
+                    await createLoanWithoutLink();
+                }}
+                title="💰 Você já retirou o dinheiro?"
+                message="Não encontramos transações bancárias compatíveis nos últimos 7 dias. Você já sacou ou transferiu o valor do empréstimo da sua conta bancária?"
+                confirmText="Sim, já retirei"
+                cancelText="Não, cancelar"
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Side: Simulator & Action */}
