@@ -12,28 +12,36 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const loadUser = async () => {
             const token = localStorage.getItem('token');
-            console.log('[AuthContext] Loading user, token exists:', !!token);
+            const storedUser = localStorage.getItem('user');
 
             if (token) {
+                // Se temos usuário no localStorage, já preenchemos para evitar flash de login
+                if (storedUser) {
+                    try {
+                        const parsedUser = JSON.parse(storedUser);
+                        setUser(parsedUser);
+                    } catch (e) {
+                        console.error('Error parsing stored user');
+                    }
+                }
+
                 try {
-                    console.log('[AuthContext] Fetching user data...');
+                    console.log('[AuthContext] Refreshing user data from server...');
                     const res = await api.get('/auth/me');
-                    console.log('[AuthContext] User data loaded:', res.data.user.email);
                     setUser(res.data.user);
                     setPartner(res.data.partner);
                     setHasPartner(res.data.hasPartner);
+
+                    // Atualiza cache local
+                    localStorage.setItem('user', JSON.stringify(res.data.user));
                 } catch (error) {
-                    console.error('[AuthContext] Failed to load user:', error.response?.status, error.response?.data);
-                    // Only remove token if it's actually invalid (401), not on network errors
+                    console.error('[AuthContext] Failed to load user:', error.response?.status);
                     if (error.response?.status === 401) {
-                        console.log('[AuthContext] Token invalid, removing...');
                         localStorage.removeItem('token');
-                    } else {
-                        console.log('[AuthContext] Network error, keeping token for retry');
+                        localStorage.removeItem('user');
+                        setUser(null);
                     }
                 }
-            } else {
-                console.log('[AuthContext] No token found in localStorage');
             }
             setLoading(false);
         };
@@ -43,12 +51,16 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+
         setUser(res.data.user);
-        // Reload full user data to get partner info
+
+        // Carrega dados completos (parceiro, etc)
         const meRes = await api.get('/auth/me');
         setUser(meRes.data.user);
         setPartner(meRes.data.partner);
         setHasPartner(meRes.data.hasPartner);
+        localStorage.setItem('user', JSON.stringify(meRes.data.user));
     };
 
     const register = async (name, email, password) => {

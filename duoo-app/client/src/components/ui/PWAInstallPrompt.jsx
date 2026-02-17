@@ -6,32 +6,30 @@ const PWAInstallPrompt = () => {
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
         const handler = (e) => {
-            // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
-            // Stash the event so it can be triggered later
             setDeferredPrompt(e);
 
-            // Check if user has dismissed before
             const dismissed = localStorage.getItem('pwaInstallDismissed');
-            if (!dismissed) {
-                // Show prompt after 5 seconds
-                setTimeout(() => {
-                    setShowPrompt(true);
-                }, 5000);
+            if (!dismissed && !isStandalone) {
+                setTimeout(() => setShowPrompt(true), 5000);
             }
         };
 
         window.addEventListener('beforeinstallprompt', handler);
 
-        // Check if already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('App is already installed');
+        // Se for iOS e não estiver instalado, mostramos o prompt customizado
+        if (isIOS && !isStandalone) {
+            const dismissed = localStorage.getItem('pwaInstallDismissed');
+            if (!dismissed) {
+                setTimeout(() => setShowPrompt(true), 10000);
+            }
         }
 
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handler);
-        };
+        return () => window.removeEventListener('beforeinstallprompt', handler);
     }, []);
 
     const handleInstall = async () => {
@@ -72,24 +70,43 @@ const PWAInstallPrompt = () => {
                         <h3 className="font-bold text-slate-900 dark:text-white mb-1">
                             Instalar Duoo
                         </h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                            Instale o app na sua tela inicial para acesso rápido e experiência completa, mesmo offline.
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleInstall}
-                                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors text-sm"
-                            >
-                                <Download size={16} />
-                                Instalar
-                            </button>
-                            <button
-                                onClick={handleDismiss}
-                                className="flex-1 py-2 px-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-xl transition-colors text-sm"
-                            >
-                                Agora não
-                            </button>
-                        </div>
+                        {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+                            <div className="space-y-3">
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    Para instalar no iPhone e receber notificações:
+                                </p>
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                                    Toque em <span className="text-emerald-500">Compartilhar</span> (ícone <span className="inline-block border border-slate-300 dark:border-slate-600 px-1 rounded mx-1">↑</span>) e depois em <span className="text-emerald-500 font-bold">Adicionar à Tela de Início</span>.
+                                </div>
+                                <button
+                                    onClick={handleDismiss}
+                                    className="w-full py-2 px-4 bg-emerald-500 text-white font-bold rounded-xl transition-colors text-sm"
+                                >
+                                    Fazer Adição Depois
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                                    Instale o app na sua tela inicial para acesso rápido e experiência completa, mesmo offline.
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleInstall}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors text-sm"
+                                    >
+                                        <Download size={16} />
+                                        Instalar
+                                    </button>
+                                    <button
+                                        onClick={handleDismiss}
+                                        className="flex-1 py-2 px-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-xl transition-colors text-sm"
+                                    >
+                                        Agora não
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                     <button
                         onClick={handleDismiss}
