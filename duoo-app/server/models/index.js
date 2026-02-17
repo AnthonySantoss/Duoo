@@ -16,6 +16,7 @@ const AlertNotification = require('./AlertNotification');
 const Notification = require('./Notification');
 const Challenge = require('./Challenge');
 const Recurring = require('./Recurring');
+const PushSubscription = require('./PushSubscription');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -72,6 +73,9 @@ Notification.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(Recurring, { foreignKey: 'user_id' });
 Recurring.belongsTo(User, { foreignKey: 'user_id' });
 
+User.hasMany(PushSubscription, { foreignKey: 'user_id' });
+PushSubscription.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -90,5 +94,6 @@ module.exports = {
     AlertNotification,
     Notification,
     Recurring,
-    Challenge
+    Challenge,
+    PushSubscription
 };

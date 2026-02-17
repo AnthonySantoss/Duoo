@@ -110,10 +110,10 @@ const Recurring = () => {
     const handleUpdateStatus = async (status) => {
         if (!selectedItem) return;
 
-        // Se for receita e estiver recebendo, garantir que tenha carteira
-        if (selectedItem.type === 'income' && status === 'received') {
+        // Se for receita ou fatura e estiver recebendo/pagando, garantir que tenha carteira
+        if ((selectedItem.type === 'income' && status === 'received') || (selectedItem.isInvoice && status === 'paid')) {
             if (!updateWalletId) {
-                showToast("Selecione uma carteira para receber!", "error");
+                showToast(`Selecione uma carteira para ${selectedItem.type === 'income' ? 'receber' : 'pagar'}!`, "error");
                 return;
             }
         }
@@ -264,7 +264,14 @@ const Recurring = () => {
                                     {item.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-900 dark:text-white">{item.title}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-slate-900 dark:text-white">{item.title}</h4>
+                                        {item.isInvoice && (
+                                            <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                Cartão
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${{
                                             'pending': 'bg-slate-100 text-slate-500',
@@ -340,9 +347,11 @@ const Recurring = () => {
                             <p className="text-sm text-slate-400">{formatDate(selectedItem.date)}</p>
                         </div>
 
-                        {selectedItem.type === 'income' && selectedItem.status !== 'received' && (
+                        {((selectedItem.type === 'income' && selectedItem.status !== 'received') || (selectedItem.isInvoice && selectedItem.status !== 'paid')) && (
                             <div>
-                                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Carteira para Recebimento</label>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">
+                                    {selectedItem.type === 'income' ? 'Carteira para Recebimento' : 'Pagar com a Carteira'}
+                                </label>
                                 <select
                                     value={updateWalletId}
                                     onChange={e => setUpdateWalletId(e.target.value)}

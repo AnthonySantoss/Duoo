@@ -1,4 +1,4 @@
-const { Notification, User } = require('../models');
+const { Notification, User, PushSubscription } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -188,6 +188,71 @@ exports.markAsNotified = async (req, res) => {
     } catch (error) {
         console.error('Error marking notification as notified:', error);
         res.status(500).json({ error: 'Failed to mark notification as notified' });
+    }
+};
+
+/**
+ * Salva uma nova inscrição para push notifications
+ */
+exports.subscribe = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { subscription, deviceType } = req.body;
+
+        if (!subscription) {
+            return res.status(400).json({ error: 'Subscription data is required' });
+        }
+
+        // Criar ou atualizar a inscrição
+        const subscriptionData = JSON.stringify(subscription);
+
+        // Verificar se já existe essa inscrição para esse usuário
+        const [pushSub, created] = await PushSubscription.findOrCreate({
+            where: {
+                user_id: userId,
+                subscription_data: subscriptionData
+            },
+            defaults: {
+                device_type: deviceType
+            }
+        });
+
+        if (!created) {
+            await pushSub.update({ device_type: deviceType });
+        }
+
+        res.status(201).json({ success: true, pushSub });
+    } catch (error) {
+        console.error('Error saving push subscription:', error);
+        res.status(500).json({ error: 'Failed to save push subscription' });
+    }
+};
+
+/**
+ * Remove uma inscrição de push notifications
+ */
+exports.unsubscribe = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { subscription } = req.body;
+
+        if (!subscription) {
+            return res.status(400).json({ error: 'Subscription data is required' });
+        }
+
+        const subscriptionData = JSON.stringify(subscription);
+
+        await PushSubscription.destroy({
+            where: {
+                user_id: userId,
+                subscription_data: subscriptionData
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error removing push subscription:', error);
+        res.status(500).json({ error: 'Failed to remove push subscription' });
     }
 };
 

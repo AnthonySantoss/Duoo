@@ -1,5 +1,17 @@
-const { Notification, User, Goal, CreditCardInvoice, CreditCard, Transaction } = require('../models');
+const { Notification, User, Goal, CreditCardInvoice, CreditCard, Transaction, PushSubscription } = require('../models');
 const { Op } = require('sequelize');
+const webpush = require('web-push');
+const path = require('path');
+
+// Configurar WebPush
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT || 'mailto:anthonysantossag@gmail.com',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+    console.log('✅ WebPush VAPID keys configured');
+}
 
 class NotificationService {
     /**
@@ -16,6 +28,16 @@ class NotificationService {
                 read: false
             });
             console.log(`📧 Notification created for user ${userId}: ${title}`);
+
+            // Tentar enviar via Push
+            this.sendPushToUser(userId, {
+                title,
+                body: message,
+                link: link || '/dashboard',
+                type: type,
+                id: notification.id
+            }).catch(err => console.error('Push notification error:', err));
+
             return notification;
         } catch (error) {
             console.error('Error creating notification:', error);
@@ -250,6 +272,51 @@ class NotificationService {
             console.log(`✅ Checked ${goals.length} goals for progress notifications`);
         } catch (error) {
             console.error('Error checking goal progress:', error);
+        }
+    }
+
+    /**
+     * Envia notificação push para todas as inscrições de um usuário
+     */
+    async sendPushToUser(userId, data) {
+        try {
+            const subscriptions = await PushSubscription.findAll({
+                where: { user_id: userId }
+            });
+
+            if (!subscriptions || subscriptions.length === 0) {
+                return;
+            }
+
+            const payload = JSON.stringify({
+                title: data.title,
+                body: data.body,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                data: {
+                    link: data.link || '/',
+                    id: data.id
+                }
+            });
+
+            const sendPromises = subscriptions.map(async (sub) => {
+                try {
+                    const pushSub = JSON.parse(sub.subscription_data);
+                    await webpush.sendNotification(pushSub, payload);
+                } catch (error) {
+                    if (error.statusCode === 410 || error.statusCode === 404) {
+                        // Inscrição expirada ou inválida - remover do banco
+                        await sub.destroy();
+                        console.log(`🗑️ Removed expired push subscription for user ${userId}`);
+                    } else {
+                        console.error('Error sending push notification to sub:', error);
+                    }
+                }
+            });
+
+            await Promise.all(sendPromises);
+        } catch (error) {
+            console.error('Error in sendPushToUser:', error);
         }
     }
 }

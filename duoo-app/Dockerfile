@@ -7,7 +7,7 @@ COPY client/ ./
 RUN npm run build
 
 # Stage 2: Setup Server
-FROM node:18-alpine
+FROM node:18
 WORKDIR /app
 
 # Create directory for persistent data
@@ -17,7 +17,7 @@ ENV NODE_ENV=production
 ENV PORT=8080
 
 # Install build dependencies
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Install Server Dependencies
 COPY server/package*.json ./server/

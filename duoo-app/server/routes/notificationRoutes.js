@@ -27,4 +27,8 @@ router.post('/', notificationController.createNotification);
 // Enviar recado para parceiro
 router.post('/send-to-partner', notificationController.sendToPartner);
 
+// Push Notifications (WebPush)
+router.post('/push/subscribe', notificationController.subscribe);
+router.post('/push/unsubscribe', notificationController.unsubscribe);
+
 module.exports = router;

@@ -1,3 +1,5 @@
+import api from './api';
+
 /**
  * Serviço para gerenciar notificações do navegador (Web Notifications API)
  * Permite enviar notificações mesmo quando o usuário não está na aba
@@ -42,6 +44,10 @@ class BrowserNotificationService {
                 console.log('✅ Permissão para notificações concedida');
                 // Salvar preferência no localStorage
                 localStorage.setItem('notificationsEnabled', 'true');
+
+                // Subscrever para Push Notifications (WebPush)
+                this.subscribeUserToPush();
+
                 return true;
             } else {
                 console.log('❌ Permissão para notificações negada');
@@ -158,6 +164,79 @@ class BrowserNotificationService {
      */
     setEnabled(enabled) {
         localStorage.setItem('notificationsEnabled', enabled ? 'true' : 'false');
+        if (enabled) {
+            this.subscribeUserToPush();
+        }
+    }
+
+    /**
+     * Subscreve o usuário para Push Notifications (WebPush)
+     */
+    async subscribeUserToPush() {
+        try {
+            // 1. Verificar se o navegador suporta Service Workers e Push
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                console.warn('Push notifications não são suportadas neste navegador');
+                return;
+            }
+
+            // 2. Aguardar o Service Worker estar pronto
+            const registration = await navigator.serviceWorker.ready;
+
+            // 3. Pegar a chave pública do VAPID
+            const vapidPublicKey = document.querySelector('meta[name="vapid-public-key"]')?.content;
+            if (!vapidPublicKey) {
+                console.error('VAPID Public Key não encontrada no meta tag');
+                return;
+            }
+
+            const convertedVapidKey = this.urlBase64ToUint8Array(vapidPublicKey);
+
+            // 4. Subscrever
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+            });
+
+            console.log('✅ Usuário subscrito para WebPush');
+
+            // 5. Enviar para o backend
+            await api.post('/notifications/push/subscribe', {
+                subscription,
+                deviceType: this.getDeviceType()
+            });
+
+        } catch (error) {
+            console.error('Erro ao subscrever para WebPush:', error);
+        }
+    }
+
+    /**
+     * Helper para converter chave VAPID
+     */
+    urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    /**
+     * Helper para identificar tipo de dispositivo
+     */
+    getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/android/i.test(ua)) return 'android';
+        if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
+        return 'desktop';
     }
 }
 

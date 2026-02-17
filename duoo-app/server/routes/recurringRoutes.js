@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Recurring, User, Transaction, Wallet } = require('../models');
+const { Recurring, User, Transaction, Wallet, CreditCard, CreditCardInvoice } = require('../models');
 const auth = require('../middleware/authMiddleware');
 const { Op } = require('sequelize');
 
@@ -40,7 +40,43 @@ router.get('/', auth, async (req, res) => {
             where: whereClause,
             order: [['date', 'ASC']]
         });
-        res.json(items);
+
+        // 3. Buscar faturas de cartão de crédito para o período
+        let invoiceItems = [];
+        if (year && month) {
+            const creditCards = await CreditCard.findAll({
+                where: { user_id: { [Op.in]: userFilter } }
+            });
+            const cardIds = creditCards.map(c => c.id);
+
+            const invoices = await CreditCardInvoice.findAll({
+                where: {
+                    credit_card_id: { [Op.in]: cardIds },
+                    month: parseInt(month),
+                    year: parseInt(year)
+                },
+                include: [{
+                    model: CreditCard,
+                    attributes: ['name']
+                }]
+            });
+
+            invoiceItems = invoices.map(inv => ({
+                id: `invoice-${inv.id}`,
+                title: `Fatura ${inv.CreditCard.name}`,
+                amount: inv.amount,
+                type: 'expense',
+                status: inv.paid ? 'paid' : 'pending',
+                date: inv.due_date,
+                isInvoice: true,
+                credit_card_id: inv.credit_card_id
+            }));
+        }
+
+        // Combinar e ordenar
+        const allItems = [...items, ...invoiceItems].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        res.json(allItems);
     } catch (error) {
         console.error('Erro ao buscar transações recorrentes:', error);
         res.status(500).json({ error: 'Falha ao buscar itens recorrentes' });
@@ -117,6 +153,83 @@ router.post('/', auth, async (req, res) => {
 
 // Update status or details
 router.put('/:id', auth, async (req, res) => {
+    const { id } = req.params;
+    const { status, wallet_id } = req.body;
+
+    // 1. Tratamento Especial para Faturas de Cartão de Crédito
+    if (id.startsWith('invoice-')) {
+        const t = await Transaction.sequelize.transaction();
+        try {
+            const invoiceId = id.replace('invoice-', '');
+            const invoice = await CreditCardInvoice.findByPk(invoiceId, {
+                include: [CreditCard],
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+
+            if (!invoice) {
+                await t.rollback();
+                return res.status(404).json({ error: 'Fatura não encontrada' });
+            }
+
+            // Verificar se o cartão pertence ao usuário ou parceiro
+            const user = await User.findByPk(req.user.id);
+            const allowedUsers = [req.user.id];
+            if (user.partner_id) allowedUsers.push(user.partner_id);
+
+            if (!allowedUsers.includes(invoice.CreditCard.user_id)) {
+                await t.rollback();
+                return res.status(403).json({ error: 'Sem permissão' });
+            }
+
+            const wasPaid = invoice.paid;
+            const nowPaid = status === 'paid';
+
+            if (nowPaid && !wasPaid) {
+                if (!wallet_id) {
+                    await t.rollback();
+                    return res.status(400).json({ error: 'Carteira necessária para pagamento' });
+                }
+
+                const wallet = await Wallet.findByPk(wallet_id, { transaction: t, lock: t.LOCK.UPDATE });
+                if (!wallet) {
+                    await t.rollback();
+                    return res.status(404).json({ error: 'Carteira não encontrada' });
+                }
+
+                const deductionAmount = -Math.abs(parseFloat(invoice.amount));
+
+                await Transaction.create({
+                    title: `Pagamento fatura ${invoice.CreditCard.name} - ${invoice.month}/${invoice.year}`,
+                    amount: deductionAmount,
+                    type: 'expense',
+                    category: 'Cartão de Crédito',
+                    wallet_id: wallet.id,
+                    user_id: req.user.id,
+                    date: new Date()
+                }, { transaction: t });
+
+                wallet.balance = parseFloat(wallet.balance) + deductionAmount;
+                await wallet.save({ transaction: t });
+
+                invoice.paid = true;
+                invoice.paid_date = new Date();
+            } else if (!nowPaid && wasPaid) {
+                // Reverter pagamento (opcional, mas bom para consistência se permitido na UI)
+                invoice.paid = false;
+                invoice.paid_date = null;
+            }
+
+            await invoice.save({ transaction: t });
+            await t.commit();
+            return res.json(invoice);
+        } catch (error) {
+            if (t) await t.rollback();
+            console.error('Erro ao atualizar fatura via recorrência:', error);
+            return res.status(500).json({ error: error.message });
+        }
+    }
+
     const t = await Transaction.sequelize.transaction();
     try {
         const { status } = req.body;
@@ -207,7 +320,26 @@ router.put('/:id', auth, async (req, res) => {
 
 // Delete
 router.delete('/:id', auth, async (req, res) => {
+    const { id } = req.params;
     try {
+        if (id.startsWith('invoice-')) {
+            const invoiceId = id.replace('invoice-', '');
+            const invoice = await CreditCardInvoice.findByPk(invoiceId, { include: [CreditCard] });
+
+            if (!invoice) return res.status(404).json({ error: 'Fatura não encontrada' });
+
+            const user = await User.findByPk(req.user.id);
+            const allowedUsers = [req.user.id];
+            if (user.partner_id) allowedUsers.push(user.partner_id);
+
+            if (!allowedUsers.includes(invoice.CreditCard.user_id)) {
+                return res.status(403).json({ error: 'Sem permissão' });
+            }
+
+            await invoice.destroy();
+            return res.sendStatus(204);
+        }
+
         const rows = await Recurring.destroy({
             where: { id: req.params.id, user_id: req.user.id }
         });
