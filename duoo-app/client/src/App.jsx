@@ -19,6 +19,7 @@ import Statement from './pages/Statement';
 import Investments from './pages/Investments';
 import EconomyForecast from './pages/EconomyForecast';
 import Recurring from './pages/Recurring';
+import Challenges from './pages/Challenges';
 import MobileMenu from './pages/MobileMenu';
 import PWAInstallPrompt from './components/ui/PWAInstallPrompt';
 
@@ -64,6 +65,7 @@ function App() {
                 <Route path="achievements" element={<Achievements />} />
                 <Route path="economy-forecast" element={<EconomyForecast />} />
                 <Route path="recurring" element={<Recurring />} />
+                <Route path="challenges" element={<Challenges />} />
                 <Route path="menu" element={<MobileMenu />} />
 
                 {/* Fallback for other routes */}

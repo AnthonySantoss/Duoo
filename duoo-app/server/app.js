@@ -44,6 +44,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/challenges', require('./routes/challengeRoutes'));
 app.use('/api/recurring', require('./routes/recurringRoutes'));
+app.use('/api/config', require('./routes/configRoutes'));
 
 // Global Error Handler (Must be after all routes)
 app.use(require('./middleware/errorHandler'));

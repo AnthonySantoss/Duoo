@@ -63,6 +63,14 @@ const Transaction = sequelize.define('Transaction', {
     notes: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    goal_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'Goals',
+            key: 'id'
+        }
     }
 });
 

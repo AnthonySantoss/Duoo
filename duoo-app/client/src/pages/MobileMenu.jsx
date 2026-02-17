@@ -14,7 +14,8 @@ import {
     Building2,
     TrendingUp,
     Trophy,
-    CalendarRange
+    CalendarRange,
+    Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,6 +34,7 @@ const MobileMenu = () => {
         { title: "Conquistas", icon: <Trophy className="text-amber-500" size={24} />, desc: "Suas medalhas", path: '/dashboard/achievements' },
         { title: "Vincular", icon: <LinkIcon className="text-slate-500" size={24} />, desc: "Conectar parceiro", path: '/dashboard/link-accounts' },
         { title: "Recorrência", icon: <CalendarRange className="text-orange-500" size={24} />, desc: "Receitas fixas", path: '/dashboard/recurring' },
+        { title: "Desafios", icon: <Zap className="text-yellow-500" size={24} />, desc: "Meta do mês", path: '/dashboard/challenges' },
     ];
 
     return (

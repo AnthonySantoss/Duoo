@@ -1,4 +1,4 @@
-const { Transaction, Wallet, User, CreditCardPurchase, CreditCard } = require('../models');
+const { Transaction, Wallet, User, CreditCardPurchase, CreditCard, UserConfig } = require('../models');
 const { Op } = require('sequelize');
 const budgetAlertService = require('../services/budgetAlertService');
 const achievementService = require('../services/achievementService');
@@ -175,7 +175,7 @@ exports.getTransactions = async (req, res) => {
 
 exports.createTransaction = async (req, res) => {
     try {
-        const { title, amount, category, date, type, wallet_id, split_with_partner, split_amount, notes } = req.body;
+        const { title, amount, category, date, type, wallet_id, split_with_partner, split_amount, notes, goal_id } = req.body;
 
         // Validate wallet belongs to user (only own wallets, not partner's)
         const wallet = await Wallet.findByPk(wallet_id);
@@ -216,7 +216,8 @@ exports.createTransaction = async (req, res) => {
             user_id: req.user.id,
             split_with_partner: !!split_with_partner,
             split_amount: finalSplitAmount,
-            notes
+            notes,
+            goal_id: goal_id || null
         });
 
         // Update wallet balance
@@ -236,6 +237,18 @@ exports.createTransaction = async (req, res) => {
                 user.name,
                 transaction
             );
+
+            // Adicional: Notificar gasto elevado se >= limite configurado
+            const config = await UserConfig.findOne({ where: { user_id: user.partner_id } });
+            const limit = config ? parseFloat(config.large_transaction_limit) : 500;
+
+            if (Math.abs(amountValue) >= limit) {
+                await notificationService.notifyLargeExpense(
+                    user.partner_id,
+                    user.name,
+                    transaction
+                );
+            }
         }
 
         res.status(201).json(transaction);
@@ -248,7 +261,7 @@ exports.createTransaction = async (req, res) => {
 exports.updateTransaction = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, amount, category, date, type, split_with_partner, split_amount, notes } = req.body;
+        const { title, amount, category, date, type, split_with_partner, split_amount, notes, goal_id } = req.body;
 
         // Bloquear edição de compras de cartão por esta rota por enquanto
         if (String(id).startsWith('cc_')) {
@@ -280,6 +293,7 @@ exports.updateTransaction = async (req, res) => {
         transaction.split_with_partner = !!split_with_partner;
         transaction.split_amount = split_with_partner ? (split_amount || Math.abs(parseFloat(amount)) / 2) : null;
         transaction.notes = notes;
+        transaction.goal_id = goal_id || null;
         await transaction.save();
 
         // Apply new balance change

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Zap, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAchievements } from '../context/AchievementContext';
 import AchievementModal from '../components/ui/AchievementModal';
@@ -38,6 +38,7 @@ const DashboardLayout = () => {
         { path: '/dashboard/wallets', icon: <Landmark size={20} />, label: 'Carteiras' },
         { path: '/dashboard/investments', icon: <CreditCard size={20} />, label: 'Cartões de Crédito' },
         { path: '/dashboard/economy-forecast', icon: <TrendingUp size={20} />, label: 'Previsão' },
+        { path: '/dashboard/challenges', icon: <Zap size={20} />, label: 'Desafios' },
         { path: '/dashboard/achievements', icon: <Trophy size={20} />, label: 'Conquistas' },
     ];
 

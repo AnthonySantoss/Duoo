@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, TrendingUp, Users } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, TrendingUp, Users, Receipt, Landmark } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
@@ -24,6 +24,8 @@ const Goals = () => {
     const [selectedWallet, setSelectedWallet] = useState('');
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [goalToDelete, setGoalToDelete] = useState(null);
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [linkedTransactions, setLinkedTransactions] = useState([]);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -32,7 +34,8 @@ const Goals = () => {
         is_joint: false,
         is_yielding: false,
         cdi_percentage: '100',
-        bank_name: ''
+        bank_name: '',
+        is_event_bucket: false
     });
 
     useEffect(() => {
@@ -81,7 +84,8 @@ const Goals = () => {
                 is_joint: goal.is_joint || false,
                 is_yielding: goal.is_yielding || false,
                 cdi_percentage: goal.cdi_percentage ? goal.cdi_percentage.toString() : '100',
-                bank_name: goal.bank_name || ''
+                bank_name: goal.bank_name || '',
+                is_event_bucket: goal.is_event_bucket || false
             });
         } else {
             setEditingGoal(null);
@@ -92,7 +96,8 @@ const Goals = () => {
                 is_joint: false,
                 is_yielding: false,
                 cdi_percentage: '100',
-                bank_name: ''
+                bank_name: '',
+                is_event_bucket: false
             });
         }
         setIsModalOpen(true);
@@ -108,7 +113,8 @@ const Goals = () => {
             is_joint: formData.is_joint,
             is_yielding: formData.is_yielding,
             cdi_percentage: formData.is_yielding ? parseFloat(formData.cdi_percentage) : null,
-            bank_name: formData.is_yielding ? formData.bank_name : null
+            bank_name: formData.is_yielding ? formData.bank_name : null,
+            is_event_bucket: formData.is_event_bucket
         };
 
         try {
@@ -153,6 +159,24 @@ const Goals = () => {
         if (wallets.length > 0) setSelectedWallet(wallets[0].id);
         else setSelectedWallet('');
         setIsProgressModalOpen(true);
+    };
+
+    const fetchLinkedTransactions = async (goalId) => {
+        try {
+            const res = await api.get(`/transactions`, { params: { goal_id: goalId } });
+            setLinkedTransactions(res.data);
+        } catch (error) {
+            console.error('Failed to fetch linked transactions:', error);
+        }
+    };
+
+    const handleOpenDetails = async (goal) => {
+        setSelectedGoal(goal);
+        setLinkedTransactions([]);
+        setIsDetailsModalOpen(true);
+        if (goal.is_event_bucket) {
+            fetchLinkedTransactions(goal.id);
+        }
     };
 
     const handleAddProgress = async (e) => {
@@ -217,11 +241,22 @@ const Goals = () => {
                     goals.map(goal => {
                         const progress = (parseFloat(goal.current_amount) / parseFloat(goal.target_amount)) * 100;
                         return (
-                            <Card key={goal.id} className="group relative">
+                            <Card
+                                key={goal.id}
+                                className={`group relative cursor-pointer hover:ring-2 hover:ring-emerald-500/20 transition-all ${goal.is_event_bucket ? 'border-2 border-blue-100 dark:border-blue-900/30' : ''}`}
+                                onClick={() => handleOpenDetails(goal)}
+                            >
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex-1">
                                         <h4 className="font-bold mb-1">{goal.title}</h4>
-                                        {getOwnerLabel(goal)}
+                                        <div className="flex items-center gap-2">
+                                            {getOwnerLabel(goal)}
+                                            {goal.is_event_bucket && (
+                                                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
+                                                    Cesto
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold px-2 py-1 bg-slate-100 rounded-lg">
@@ -386,6 +421,23 @@ const Goals = () => {
                         </div>
                     )}
 
+                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.is_event_bucket}
+                                onChange={e => setFormData({ ...formData, is_event_bucket: e.target.checked })}
+                                className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                É um "Cesto de Evento"? (Ex: Casamento, Viagem)
+                            </span>
+                        </label>
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 ml-6 leading-tight">
+                            Permite vincular gastos específicos diretamente a esta meta para acompanhamento detalhado.
+                        </p>
+                    </div>
+
                     <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-500/30">
                         {editingGoal ? 'Atualizar Meta' : 'Criar Meta'}
                     </button>
@@ -438,6 +490,68 @@ const Goals = () => {
                         Adicionar Progresso
                     </button>
                 </form>
+            </Modal>
+
+            {/* Detalhes da Meta / Cesto */}
+            <Modal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} title={selectedGoal?.title}>
+                <div className="space-y-6">
+                    <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Progresso Total</span>
+                            <span className="text-xl font-black text-emerald-500">
+                                {((parseFloat(selectedGoal?.current_amount || 0) / parseFloat(selectedGoal?.target_amount || 1)) * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                        <ProgressBar
+                            progress={(parseFloat(selectedGoal?.current_amount || 0) / parseFloat(selectedGoal?.target_amount || 1)) * 100}
+                            colorClass="bg-emerald-500"
+                        />
+                        <div className="flex justify-between text-xs font-bold text-slate-400 uppercase">
+                            <span>R$ {parseFloat(selectedGoal?.current_amount || 0).toLocaleString('pt-BR')}</span>
+                            <span>Meta: R$ {parseFloat(selectedGoal?.target_amount || 0).toLocaleString('pt-BR')}</span>
+                        </div>
+                    </div>
+
+                    {selectedGoal?.is_event_bucket && (
+                        <div className="space-y-4">
+                            <h4 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                <Receipt size={18} className="text-blue-500" /> Transações Vinculadas
+                            </h4>
+                            <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                                {linkedTransactions.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-400 text-sm">Nenhuma transação vinculada ainda.</div>
+                                ) : (
+                                    linkedTransactions.map(t => (
+                                        <div key={t.id} className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl">
+                                            <div>
+                                                <p className="font-bold text-sm">{t.title}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold">{new Date(t.date).toLocaleDateString()}</p>
+                                            </div>
+                                            <span className={`font-black text-sm ${parseFloat(t.amount) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                R$ {Math.abs(parseFloat(t.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 pt-4 border-t border-slate-50 dark:border-slate-800">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenProgressModal(selectedGoal); setIsDetailsModalOpen(false); }}
+                            className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-black text-sm hover:scale-[1.02] transition-all"
+                        >
+                            ADICIONAR FUNDOS
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenModal(selectedGoal); setIsDetailsModalOpen(false); }}
+                            className="px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-3 rounded-xl font-black text-sm hover:bg-slate-200"
+                        >
+                            EDITAR
+                        </button>
+                    </div>
+                </div>
             </Modal>
 
             <ConfirmModal

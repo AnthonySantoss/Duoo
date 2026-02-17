@@ -7,6 +7,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
     const { checkAchievements } = useAchievements();
     const [wallets, setWallets] = useState([]);
     const [creditCards, setCreditCards] = useState([]);
+    const [eventBuckets, setEventBuckets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
         type: 'expense',
         wallet_id: '',
         credit_card_id: '',
+        goal_id: '',
         installments: '1',
         split_with_partner: false,
         split_amount: '',
@@ -26,6 +28,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
     useEffect(() => {
         fetchWallets();
         fetchCreditCards();
+        fetchEventBuckets();
     }, []);
 
     useEffect(() => {
@@ -39,7 +42,8 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
                 wallet_id: transaction.wallet_id,
                 split_with_partner: !!transaction.split_with_partner,
                 split_amount: transaction.split_amount || '',
-                notes: transaction.notes || ''
+                notes: transaction.notes || '',
+                goal_id: transaction.goal_id || ''
             });
         } else {
             resetForm();
@@ -68,6 +72,15 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
             }
         } catch (error) {
             console.error('Failed to fetch credit cards:', error);
+        }
+    };
+
+    const fetchEventBuckets = async () => {
+        try {
+            const res = await api.get('/goals?viewMode=joint');
+            setEventBuckets(res.data.filter(g => g.is_event_bucket));
+        } catch (error) {
+            console.error('Failed to fetch event buckets:', error);
         }
     };
 
@@ -119,7 +132,8 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
                     installments: parseInt(formData.installments),
                     purchase_date: formData.date,
                     category: formData.category,
-                    notes: formData.notes
+                    notes: formData.notes,
+                    goal_id: formData.goal_id ? parseInt(formData.goal_id) : null
                 });
             } else {
                 const payload = {
@@ -131,7 +145,8 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
                     wallet_id: parseInt(formData.wallet_id),
                     split_with_partner: formData.split_with_partner,
                     split_amount: formData.split_amount ? parseFloat(formData.split_amount) : null,
-                    notes: formData.notes
+                    notes: formData.notes,
+                    goal_id: formData.goal_id ? parseInt(formData.goal_id) : null
                 };
 
                 if (transaction) {
@@ -298,6 +313,22 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
                                 <option key={wallet.id} value={wallet.id}>
                                     {wallet.name}
                                 </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {(formData.type === 'expense' || formData.type === 'credit') && eventBuckets.length > 0 && (
+                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Vincular a Cesto de Evento</label>
+                        <select
+                            value={formData.goal_id}
+                            onChange={e => setFormData({ ...formData, goal_id: e.target.value })}
+                            className="w-full px-4 py-2 text-sm rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Nenhum evento</option>
+                            {eventBuckets.map(bucket => (
+                                <option key={bucket.id} value={bucket.id}>{bucket.title}</option>
                             ))}
                         </select>
                     </div>

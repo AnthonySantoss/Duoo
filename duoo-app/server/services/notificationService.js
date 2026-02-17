@@ -276,6 +276,85 @@ class NotificationService {
     }
 
     /**
+     * Notifica sobre gasto elevado (necessita atenção do parceiro)
+     */
+    async notifyLargeExpense(userId, partnerName, transaction) {
+        const title = `🚨 Gasto Alto: R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
+        const message = `${partnerName} registrou um gasto de R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)} em "${transaction.title}". Isso requer atenção de vocês.`;
+
+        return this.createNotification(userId, title, message, 'budget_alert', '/dashboard/transactions');
+    }
+
+    /**
+     * Envia relatórios semanais de saúde financeira para todos os usuários
+     * Deve ser chamado aos domingos à noite
+     */
+    async sendWeeklyReports() {
+        try {
+            const users = await User.findAll({
+                where: { partner_id: { [Op.ne]: null } }
+            });
+
+            // Usar um set para evitar processar o mesmo casal duas vezes
+            const processedCouples = new Set();
+
+            for (const user of users) {
+                const coupleKey = [user.id, user.partner_id].sort().join('-');
+                if (processedCouples.has(coupleKey)) continue;
+                processedCouples.add(coupleKey);
+
+                const partner = await User.findByPk(user.partner_id);
+                const userIds = [user.id, user.partner_id];
+
+                // Buscar transações dos últimos 7 dias
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                const transactions = await Transaction.findAll({
+                    where: {
+                        user_id: { [Op.in]: userIds },
+                        date: { [Op.gte]: sevenDaysAgo }
+                    }
+                });
+
+                const totalIncome = transactions
+                    .filter(t => t.type === 'income')
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+                const totalExpense = transactions
+                    .filter(t => t.type === 'expense')
+                    .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 0);
+
+                const balance = totalIncome - totalExpense;
+
+                // Buscar progresso de metas
+                const goals = await Goal.findAll({
+                    where: { user_id: { [Op.in]: userIds } },
+                    order: [['current_amount', 'DESC']]
+                });
+
+                let goalText = "";
+                if (goals.length > 0) {
+                    const topGoal = goals[0];
+                    const progress = ((topGoal.current_amount / topGoal.target_amount) * 100).toFixed(0);
+                    goalText = ` Vocês estão ${progress}% mais perto da meta "${topGoal.title}".`;
+                }
+
+                const title = "📊 Relatório Semanal Duoo";
+                const message = `Esta semana vocês economizaram R$ ${balance.toFixed(2)} (Receitas: R$ ${totalIncome.toFixed(2)}, Gastos: R$ ${totalExpense.toFixed(2)}).${goalText}`;
+
+                // Enviar para ambos
+                await this.createNotification(user.id, title, message, 'info', '/dashboard');
+                await this.createNotification(partner.id, title, message, 'info', '/dashboard');
+            }
+
+            console.log(`✅ Weekly reports sent to ${processedCouples.size} couples`);
+        } catch (error) {
+            console.error('Error sending weekly reports:', error);
+        }
+    }
+
+    /**
      * Envia notificação push para todas as inscrições de um usuário
      */
     async sendPushToUser(userId, data) {

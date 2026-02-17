@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const User = require('./User');
 
 const Challenge = sequelize.define('Challenge', {
     id: {
@@ -16,29 +17,62 @@ const Challenge = sequelize.define('Challenge', {
         allowNull: false
     },
     type: {
-        type: DataTypes.ENUM('saving', 'budget', 'activity'),
+        type: DataTypes.ENUM('saving', 'no_spending', 'category_limit'),
         allowNull: false
     },
-    target_value: {
+    target_amount: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true
     },
+    category: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    duration_days: {
+        type: DataTypes.INTEGER,
+        defaultValue: 30
+    },
     points: {
         type: DataTypes.INTEGER,
-        defaultValue: 50
+        defaultValue: 100
     },
-    start_date: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
+    icon: {
+        type: DataTypes.STRING,
+        defaultValue: 'Trophy'
     },
-    end_date: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
-    },
-    is_active: {
+    is_custom: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true
+        defaultValue: false
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: true
     }
 });
 
-module.exports = Challenge;
+const UserChallenge = sequelize.define('UserChallenge', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    status: {
+        type: DataTypes.ENUM('active', 'completed', 'failed'),
+        defaultValue: 'active'
+    },
+    progress: {
+        type: DataTypes.DECIMAL(10, 2),
+        defaultValue: 0
+    },
+    start_date: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+    },
+    end_date: {
+        type: DataTypes.DATE
+    }
+});
+
+// UserChallenge associations will be added in models/index.js
+
+module.exports = { Challenge, UserChallenge };

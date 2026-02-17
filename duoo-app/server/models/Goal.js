@@ -63,6 +63,10 @@ const Goal = sequelize.define('Goal', {
     category: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    is_event_bucket: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 });
 

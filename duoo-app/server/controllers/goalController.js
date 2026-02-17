@@ -42,7 +42,7 @@ exports.getGoals = async (req, res) => {
 
 exports.createGoal = async (req, res) => {
     try {
-        const { title, target_amount, current_amount, is_joint, is_yielding, cdi_percentage, bank_name } = req.body;
+        const { title, target_amount, current_amount, is_joint, is_yielding, cdi_percentage, bank_name, is_event_bucket } = req.body;
         const goal = await Goal.create({
             title,
             target_amount: parseFloat(target_amount),
@@ -51,6 +51,7 @@ exports.createGoal = async (req, res) => {
             is_yielding: is_yielding || false,
             cdi_percentage: cdi_percentage ? parseFloat(cdi_percentage) : null,
             bank_name: bank_name || null,
+            is_event_bucket: is_event_bucket || false,
             user_id: req.user.id
         });
         res.status(201).json(goal);
@@ -63,7 +64,7 @@ exports.createGoal = async (req, res) => {
 exports.updateGoal = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, target_amount, current_amount, is_joint, is_yielding, cdi_percentage, bank_name } = req.body;
+        const { title, target_amount, current_amount, is_joint, is_yielding, cdi_percentage, bank_name, is_event_bucket } = req.body;
 
         const goal = await Goal.findByPk(id);
         if (!goal) {
@@ -86,6 +87,7 @@ exports.updateGoal = async (req, res) => {
             goal.is_joint = is_joint;
         }
         if (is_yielding !== undefined) goal.is_yielding = is_yielding;
+        if (is_event_bucket !== undefined) goal.is_event_bucket = is_event_bucket;
         if (cdi_percentage !== undefined) goal.cdi_percentage = parseFloat(cdi_percentage);
         if (bank_name !== undefined) goal.bank_name = bank_name;
         await goal.save();

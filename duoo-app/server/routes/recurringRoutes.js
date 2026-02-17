@@ -236,9 +236,17 @@ router.put('/:id', auth, async (req, res) => {
         const payload = { ...req.body };
         if (payload.wallet_id === '') payload.wallet_id = null;
 
-        // Busca com LOCK para evitar race condition (muitos cliques seguidos)
+        // 1. Identificar usuários permitidos (usuário + parceiro)
+        const user = await User.findByPk(req.user.id);
+        const allowedUsers = [req.user.id];
+        if (user.partner_id) allowedUsers.push(user.partner_id);
+
+        // Busca com LOCK para evitar race condition
         const item = await Recurring.findOne({
-            where: { id: req.params.id, user_id: req.user.id },
+            where: {
+                id: id,
+                user_id: { [Op.in]: allowedUsers }
+            },
             transaction: t,
             lock: t.LOCK.UPDATE
         });
@@ -322,32 +330,60 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
     const { id } = req.params;
     try {
+        console.log(`[RecurringRoutes] Attempting to delete item: ${id} for user: ${req.user.id}`);
+
         if (id.startsWith('invoice-')) {
             const invoiceId = id.replace('invoice-', '');
-            const invoice = await CreditCardInvoice.findByPk(invoiceId, { include: [CreditCard] });
+            const invoice = await CreditCardInvoice.findByPk(invoiceId, {
+                include: [{
+                    model: CreditCard,
+                    attributes: ['user_id']
+                }]
+            });
 
-            if (!invoice) return res.status(404).json({ error: 'Fatura não encontrada' });
+            if (!invoice) {
+                console.log(`[RecurringRoutes] Invoice ${invoiceId} not found`);
+                return res.status(404).json({ error: 'Fatura não encontrada' });
+            }
 
             const user = await User.findByPk(req.user.id);
             const allowedUsers = [req.user.id];
             if (user.partner_id) allowedUsers.push(user.partner_id);
 
             if (!allowedUsers.includes(invoice.CreditCard.user_id)) {
+                console.log(`[RecurringRoutes] Permission denied for invoice ${invoiceId}`);
                 return res.status(403).json({ error: 'Sem permissão' });
             }
 
             await invoice.destroy();
+            console.log(`[RecurringRoutes] Invoice ${invoiceId} deleted successfully`);
             return res.sendStatus(204);
         }
 
-        const rows = await Recurring.destroy({
-            where: { id: req.params.id, user_id: req.user.id }
+        // 1. Identificar usuários permitidos (usuário + parceiro)
+        const user = await User.findByPk(req.user.id);
+        const allowedUsers = [req.user.id];
+        if (user.partner_id) allowedUsers.push(user.partner_id);
+
+        // Deletar item recorrente padrão (aluguel, salário, etc)
+        const item = await Recurring.findOne({
+            where: {
+                id: id,
+                user_id: { [Op.in]: allowedUsers }
+            }
         });
-        if (!rows) return res.status(404).json({ error: 'Not found' });
+
+        if (!item) {
+            console.log(`[RecurringRoutes] Recurring item ${id} not found for user or partner`);
+            return res.status(404).json({ error: 'Item não encontrado' });
+        }
+
+        await item.destroy();
+        console.log(`[RecurringRoutes] Recurring item ${id} deleted successfully`);
         res.sendStatus(204);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Delete failed' });
+        console.error('[RecurringRoutes] Delete failed:', error);
+        res.status(500).json({ error: 'Erro ao deletar: ' + error.message });
     }
 });
 
