@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/ui/Toast';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 const Goals = () => {
     const { viewMode } = useOutletContext();
@@ -525,7 +526,7 @@ const Goals = () => {
                                         <div key={t.id} className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl">
                                             <div>
                                                 <p className="font-bold text-sm">{t.title}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold">{new Date(t.date).toLocaleDateString()}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold">{formatDisplayDate(t.date)}</p>
                                             </div>
                                             <span className={`font-black text-sm ${parseFloat(t.amount) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                                                 R$ {Math.abs(parseFloat(t.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

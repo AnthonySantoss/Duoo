@@ -8,6 +8,7 @@ import Toast from '../components/ui/Toast';
 import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 const Bank = () => {
     const { viewMode } = useOutletContext();
@@ -299,7 +300,7 @@ const Bank = () => {
                                                     {t.title}
                                                 </h5>
                                                 <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                                                    <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                                    <span>{formatDisplayDate(t.date)}</span>
                                                     <span>•</span>
                                                     <span>{t.category}</span>
                                                     {t.wallet && (
@@ -488,7 +489,7 @@ const Bank = () => {
                                         <div>
                                             <h4 className="font-bold text-lg text-slate-900 dark:text-white">{loan.goalTitle}</h4>
                                             <div className="flex flex-col">
-                                                <p className="text-xs text-slate-500">Empréstimo realizado em {new Date(loan.date).toLocaleDateString('pt-BR')}</p>
+                                                <p className="text-xs text-slate-500">Empréstimo realizado em {formatDisplayDate(loan.date)}</p>
                                                 {viewMode === 'joint' && (
                                                     <p className="text-xs font-semibold text-indigo-500 flex items-center gap-1 mt-1">
                                                         <UserIcon size={12} /> {loan.userName}

@@ -86,11 +86,11 @@ exports.getDashboardStats = async (req, res) => {
         const currentYear = new Date().getFullYear();
 
         transactions.forEach(t => {
-            const transDate = new Date(t.date);
+            const [y, m] = t.date.split('-').map(Number);
             const amt = parseFloat(t.amount);
 
-            // Only count current month for spent/income
-            if (transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear) {
+            // Only count current month for spent/income (m is 1-based in YYYY-MM-DD)
+            if (m === currentMonth + 1 && y === currentYear) {
                 if (t.type === 'expense') {
                     // Don't count investments (goal allocations) as spending
                     if (t.category !== 'Investimento') {
@@ -119,14 +119,18 @@ exports.getDashboardStats = async (req, res) => {
 
         const cardIds = creditCards.map(c => c.id);
 
+        const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
+        const nextMonth = nextMonthDate.getMonth() + 1;
+        const nextMonthYear = nextMonthDate.getFullYear();
+
         let invoices = [];
         if (cardIds.length > 0) {
-            // 1. Get explicit invoices for current month/year
+            // 1. Get explicit invoices for NEXT month/year
             invoices = await CreditCardInvoice.findAll({
                 where: {
                     credit_card_id: { [Op.in]: cardIds },
-                    month: currentMonth + 1,
-                    year: currentYear,
+                    month: nextMonth,
+                    year: nextMonthYear,
                     paid: false
                 }
             });
@@ -195,8 +199,8 @@ exports.getDashboardStats = async (req, res) => {
             daysSinceLastTransaction: daysSinceLastTransaction,
             transactions: transactions.slice(0, 5),
             expensesByCategory: calculateCategoryStats(transactions.filter(t => {
-                const transDate = new Date(t.date);
-                return transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear;
+                const [y, m] = t.date.split('-').map(Number);
+                return m === currentMonth + 1 && y === currentYear;
             }))
         };
 

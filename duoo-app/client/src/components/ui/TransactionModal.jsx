@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import api from '../../services/api';
 import { useAchievements } from '../../context/AchievementContext';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) => {
     const { checkAchievements } = useAchievements();
@@ -14,7 +15,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
         title: '',
         amount: '',
         category: 'Alimentação',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         type: 'expense',
         wallet_id: '',
         credit_card_id: '',
@@ -89,7 +90,7 @@ const TransactionModal = ({ isOpen, onClose, transaction = null, onSuccess }) =>
             title: '',
             amount: '',
             category: 'Alimentação',
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDateString(),
             type: 'expense',
             wallet_id: wallets[0]?.id || '',
             credit_card_id: creditCards[0]?.id || '',

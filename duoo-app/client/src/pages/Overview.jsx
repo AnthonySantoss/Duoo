@@ -9,6 +9,7 @@ import api from '../services/api';
 import Toast from '../components/ui/Toast';
 import PartnerSummaryCard from '../components/PartnerSummaryCard';
 import QuickNote from '../components/QuickNote';
+import { formatDisplayDate, formatShortDisplayDate } from '../utils/dateUtils';
 
 const Overview = () => {
     const { viewMode } = useOutletContext();
@@ -209,7 +210,7 @@ const Overview = () => {
                             <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${balanceVariation >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                                 }`}>
                                 {balanceVariation >= 0 ? <ArrowUp size={12} strokeWidth={3} /> : <ArrowDown size={12} strokeWidth={3} />}
-                                {balanceVariation ? Math.abs(balanceVariation).toFixed(1) : '0.0'}%
+                                {balanceVariation ? Math.abs(balanceVariation).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0,0'}%
                             </span>
                         </div>
                         <div>
@@ -228,7 +229,7 @@ const Overview = () => {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Gastos Mês</p>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
@@ -240,7 +241,7 @@ const Overview = () => {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Fatura Atual</p>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(creditCard).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
@@ -252,7 +253,7 @@ const Overview = () => {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Economizado</p>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(saved).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
@@ -264,7 +265,7 @@ const Overview = () => {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Total Guardado</p>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">R$ {parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                         </div>
                     </div>
 
@@ -368,7 +369,7 @@ const Overview = () => {
                                     </div>
                                     <div>
                                         <p className="transaction-title">{item.title}</p>
-                                        <p className="transaction-date">{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                                        <p className="transaction-date">{formatShortDisplayDate(item.date)}</p>
                                     </div>
                                 </div>
                                 <span className={`transaction-amount ${parseFloat(item.amount) > 0 ? 'income' : 'expense'}`}>
@@ -446,7 +447,7 @@ const Overview = () => {
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Wallet size={20} /></div>
                             <Badge variant={balanceVariation >= 0 ? "success" : "danger"}>
-                                {balanceVariation > 0 ? '+' : ''}{balanceVariation ? balanceVariation.toFixed(1) : '0.0'}%
+                                {balanceVariation > 0 ? '+' : ''}{balanceVariation ? balanceVariation.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0,0'}%
                             </Badge>
                         </div>
                         <p className="text-slate-500 text-sm">Saldo Disponível</p>
@@ -551,7 +552,7 @@ const Overview = () => {
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs text-slate-400">{item.category}</span>
                                                     <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                    <span className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString('pt-BR')}</span>
+                                                    <span className="text-xs text-slate-400">{formatDisplayDate(item.date)}</span>
                                                 </div>
                                             </div>
                                         </div>

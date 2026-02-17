@@ -11,7 +11,7 @@ exports.getUserNotifications = async (req, res) => {
 
         const notifications = await Notification.findAll({
             where: { user_id: userId },
-            order: [['created_at', 'DESC']],
+            order: [['id', 'DESC']], // Using ID is safer and usually matches time order
             limit: parseInt(limit),
             offset: parseInt(offset)
         });

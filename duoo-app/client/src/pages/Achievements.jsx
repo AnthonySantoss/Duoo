@@ -6,6 +6,7 @@ import Toast from '../components/ui/Toast';
 import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 const Achievements = () => {
     const { user, partner } = useAuth();
@@ -266,7 +267,7 @@ const Achievements = () => {
 
                                 {achievement.is_unlocked && achievement.unlocked_at && viewMode !== 'joint' && (
                                     <p className="text-xs text-slate-500 mt-2">
-                                        Desbloqueada em {new Date(achievement.unlocked_at).toLocaleDateString('pt-BR')}
+                                        Desbloqueada em {formatDisplayDate(achievement.unlocked_at)}
                                     </p>
                                 )}
                             </div>

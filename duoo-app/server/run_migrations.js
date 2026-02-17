@@ -31,18 +31,38 @@ const migrations = [
     'add_notified_to_notifications.js',
 
     // --- Cleanup & Fixes ---
-    'mark_old_notifications_seen.js'
+    'mark_old_notifications_seen.js',
+    'fix-challenges-table.js',
+    'migrate-challenge-type.js',
+    'migrate-feb16_v2.js'
 ];
 
-for (const script of migrations) {
+async function runAll() {
+    console.log('\n--- Sincronizando Modelos (Base) ---');
     try {
-        console.log(`\n▶️ Rodando: ${script}...`);
-        // Use relative path from server directory
-        execSync(`node ${script}`, { stdio: 'inherit' });
-        console.log(`✅ ${script} concluído.`);
+        const { sequelize } = require('./models');
+        await sequelize.sync({ force: false });
+        console.log('✅ Base de dados sincronizada.');
     } catch (error) {
-        console.log(`ℹ️  ${script} avisou algo ou já estava aplicado (pode ignorar se for erro de coluna duplicada).`);
+        console.error('❌ Erro ao sincronizar base:', error.message);
     }
+
+    for (const script of migrations) {
+        try {
+            console.log(`\n▶️ Rodando: ${script}...`);
+            execSync(`node ${script}`, { stdio: 'inherit' });
+            console.log(`✅ ${script} concluído.`);
+        } catch (error) {
+            console.log(`⚠️  ${script} falhou ou já aplicado. Detalhe: ${error.message}`);
+        }
+    }
+
+    console.log('\n--- Todas as migrações foram processadas ---');
 }
 
-console.log('\n--- Todas as migrações foram processadas ---');
+runAll().then(() => {
+    process.exit(0);
+}).catch(err => {
+    console.error('❌ Erro fatal nas migrações:', err);
+    process.exit(1);
+});

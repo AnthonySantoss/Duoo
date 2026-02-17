@@ -230,10 +230,9 @@ exports.getUserAchievements = async (req, res) => {
         const userAchievements = await UserAchievement.findAll({
             where: { user_id: userId },
             include: [{
-                model: Achievement,
-                where: { is_active: true }
+                model: Achievement
             }],
-            order: [[Achievement, 'points', 'ASC']]
+            order: [['id', 'DESC']]
         });
 
         const result = userAchievements.map(ua => ({

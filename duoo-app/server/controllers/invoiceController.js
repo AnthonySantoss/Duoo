@@ -47,9 +47,9 @@ exports.getCurrentMonthTotal = async (req, res) => {
         const { viewMode } = req.query;
         const userId = req.user.id;
 
-        const now = new Date();
-        const currentMonth = now.getMonth() + 1; // 1-12
-        const currentYear = now.getFullYear();
+        const targetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const targetMonth = targetDate.getMonth() + 1; // 1-12
+        const targetYear = targetDate.getFullYear();
 
         // Get user to check for partner
         const user = await User.findByPk(userId);
@@ -68,19 +68,19 @@ exports.getCurrentMonthTotal = async (req, res) => {
 
         const cardIds = creditCards.map(c => c.id);
 
-        // Sum UNPAID invoices for current month
+        // Sum UNPAID invoices for NEXT month
         const invoices = await CreditCardInvoice.findAll({
             where: {
                 credit_card_id: { [Op.in]: cardIds },
-                month: currentMonth,
-                year: currentYear,
+                month: targetMonth,
+                year: targetYear,
                 paid: false // Only count unpaid invoices
             }
         });
 
         const total = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
-        res.json({ total, month: currentMonth, year: currentYear });
+        res.json({ total, month: targetMonth, year: targetYear });
     } catch (error) {
         console.error('Error fetching current month total:', error);
         res.status(500).json({ error: error.message });

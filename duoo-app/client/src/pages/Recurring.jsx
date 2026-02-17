@@ -5,6 +5,7 @@ import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import Toast from '../components/ui/Toast';
 import api from '../services/api';
+import { formatDisplayDate, getLocalDateString } from '../utils/dateUtils';
 
 const Recurring = () => {
     const { viewMode } = useOutletContext();
@@ -57,7 +58,7 @@ const Recurring = () => {
         type: 'expense',
         installments: 1,
         isRecurring: false,
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         wallet_id: ''
     });
 
@@ -86,7 +87,7 @@ const Recurring = () => {
                 type: 'expense',
                 installments: 1,
                 isRecurring: false,
-                date: new Date().toISOString().split('T')[0],
+                date: getLocalDateString(),
                 wallet_id: ''
             });
             showToast("Recorrência adicionada com sucesso!", "success");
@@ -177,10 +178,7 @@ const Recurring = () => {
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     };
 
-    const formatDate = (dateStr) => {
-        const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
-    };
+
 
     const nextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
@@ -286,7 +284,7 @@ const Recurring = () => {
                                             }[item.status]}
                                         </span>
                                         <span className="text-xs text-slate-400">•</span>
-                                        <span className="text-xs text-slate-400">{formatDate(item.date)}</span>
+                                        <span className="text-xs text-slate-400">{formatDisplayDate(item.date)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -344,7 +342,7 @@ const Recurring = () => {
                                 {formatCurrency(parseFloat(selectedItem.amount))}
                             </h2>
                             <p className="text-lg font-medium mt-2 text-slate-900 dark:text-white">{selectedItem.title}</p>
-                            <p className="text-sm text-slate-400">{formatDate(selectedItem.date)}</p>
+                            <p className="text-sm text-slate-400">{formatDisplayDate(selectedItem.date)}</p>
                         </div>
 
                         {((selectedItem.type === 'income' && selectedItem.status !== 'received') || (selectedItem.isInvoice && selectedItem.status !== 'paid')) && (

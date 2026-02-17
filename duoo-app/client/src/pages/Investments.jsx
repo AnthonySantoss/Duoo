@@ -8,6 +8,7 @@ import ProgressBar from '../components/ui/ProgressBar';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/ui/Toast';
+import { formatDisplayDate, getLocalDateString } from '../utils/dateUtils';
 
 const CreditCards = () => {
     const { viewMode } = useOutletContext();
@@ -45,7 +46,7 @@ const CreditCards = () => {
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear(),
         amount: '',
-        due_date: new Date().toISOString().split('T')[0],
+        due_date: getLocalDateString(),
         paid: false,
         wallet_id: ''
     });
@@ -113,7 +114,7 @@ const CreditCards = () => {
                 month: new Date().getMonth() + 1,
                 year: new Date().getFullYear(),
                 amount: '',
-                due_date: new Date().toISOString().split('T')[0],
+                due_date: getLocalDateString(),
                 paid: false
             });
         }
@@ -138,7 +139,7 @@ const CreditCards = () => {
                 month: new Date().getMonth() + 1,
                 year: new Date().getFullYear(),
                 amount: '',
-                due_date: new Date().toISOString().split('T')[0],
+                due_date: getLocalDateString(),
                 paid: false,
                 wallet_id: ''
             });
@@ -461,7 +462,7 @@ const CreditCards = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
-                                                    {new Date(invoice.due_date).toLocaleDateString('pt-BR')}
+                                                    {formatDisplayDate(invoice.due_date)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={`px-2 py-1 rounded-md text-xs font-semibold ${invoice.paid ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>

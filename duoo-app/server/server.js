@@ -32,11 +32,9 @@ function scheduleNotificationJobs() {
             challengeController.updateProgress();
         }
 
-        // Weekly Health Report: Sundays at 8 PM (20:00)
-        if (day === 0 && hour === 20) {
-            console.log('📊 Running weekly health reports...');
-            notificationService.sendWeeklyReports();
-        }
+        // Weekly Health Report (Dynamic based on UserConfig)
+        console.log(`📊 Checking for weekly reports (Day ${day}, Hour ${hour})...`);
+        notificationService.sendWeeklyReports(day, hour);
     }, checkInterval);
 
     console.log('✅ Notification jobs scheduled');

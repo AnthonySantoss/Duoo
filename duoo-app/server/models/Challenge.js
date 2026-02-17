@@ -47,6 +47,10 @@ const Challenge = sequelize.define('Challenge', {
     user_id: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    target_type: {
+        type: DataTypes.ENUM('expense', 'income', 'credit', 'all'),
+        defaultValue: 'expense'
     }
 });
 

@@ -4,7 +4,7 @@
     "description": "Backend for Duoo - Personal Finance for Couples",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js",
+        "start": "node run_migrations.js && node server.js",
         "dev": "nodemon server.js"
     },
     "dependencies": {

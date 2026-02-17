@@ -6,6 +6,7 @@ import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
+import { formatDisplayDate, getLocalDateString } from '../utils/dateUtils';
 
 const Transactions = () => {
     const { viewMode } = useOutletContext();
@@ -46,7 +47,7 @@ const Transactions = () => {
         title: '',
         amount: '',
         category: 'Alimentação',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         type: 'expense',
         wallet_id: '',
         credit_card_id: '',
@@ -211,7 +212,7 @@ const Transactions = () => {
                 title: '',
                 amount: '',
                 category: 'Alimentação',
-                date: new Date().toISOString().split('T')[0],
+                date: getLocalDateString(),
                 type: 'expense',
                 wallet_id: wallets[0]?.id || '',
                 credit_card_id: creditCards[0]?.id || '',
@@ -250,7 +251,7 @@ const Transactions = () => {
                     title: '',
                     amount: '',
                     category: 'Alimentação',
-                    date: new Date().toISOString().split('T')[0],
+                    date: getLocalDateString(),
                     type: 'expense',
                     wallet_id: wallets[0]?.id || '',
                     credit_card_id: creditCards[0]?.id || '',
@@ -308,7 +309,7 @@ const Transactions = () => {
                 title: '',
                 amount: '',
                 category: 'Alimentação',
-                date: new Date().toISOString().split('T')[0],
+                date: getLocalDateString(),
                 type: 'expense',
                 wallet_id: wallets[0]?.id || '',
                 credit_card_id: creditCards[0]?.id || '',
@@ -592,7 +593,7 @@ const Transactions = () => {
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">{item.category}</span>
                                         <span className="text-xs text-slate-400">•</span>
-                                        <span className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString('pt-BR')}</span>
+                                        <span className="text-xs text-slate-400">{formatDisplayDate(item.date)}</span>
                                         {item.Wallet && (
                                             <>
                                                 <span className="text-xs text-slate-400">•</span>

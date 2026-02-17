@@ -5,6 +5,7 @@ import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import Card from '../components/ui/Card';
 import Toast from '../components/ui/Toast';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 const Challenges = () => {
     const { viewMode } = useOutletContext();
@@ -29,7 +30,8 @@ const Challenges = () => {
         category: 'Outros',
         duration_days: 30,
         points: 100,
-        icon: 'Trophy'
+        icon: 'Trophy',
+        target_type: 'expense'
     });
 
     useEffect(() => {
@@ -106,7 +108,8 @@ const Challenges = () => {
             category: c.category || 'Outros',
             duration_days: c.duration_days,
             points: c.points,
-            icon: c.icon
+            icon: c.icon,
+            target_type: c.target_type || 'expense'
         });
         setIsCreateModalOpen(true);
     };
@@ -146,7 +149,7 @@ const Challenges = () => {
                             <Settings size={20} />
                         </button>
                         <button
-                            onClick={() => { setEditingChallenge(null); setChallengeFormData({ title: '', description: '', type: 'saving', target_amount: '', category: 'Outros', duration_days: 30, points: 100, icon: 'Trophy' }); setIsCreateModalOpen(true); }}
+                            onClick={() => { setEditingChallenge(null); setChallengeFormData({ title: '', description: '', type: 'saving', target_amount: '', category: 'Outros', duration_days: 30, points: 100, icon: 'Trophy', target_type: 'expense' }); setIsCreateModalOpen(true); }}
                             className="bg-white text-emerald-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-emerald-50 transition-all active:scale-95 flex items-center gap-2"
                         >
                             <PlusCircle size={18} /> Novo Desafio
@@ -196,7 +199,7 @@ const Challenges = () => {
                                         </div>
 
                                         <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold italic">
-                                            <Clock size={12} /> Termina em {new Date(uc.end_date).toLocaleDateString()}
+                                            <Clock size={12} /> Termina em {formatDisplayDate(uc.end_date)}
                                         </div>
                                     </div>
                                 </div>
@@ -318,6 +321,30 @@ const Challenges = () => {
                                     onChange={e => setChallengeFormData({ ...challengeFormData, duration_days: e.target.value })}
                                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <label className="block text-[10px] font-black text-slate-400 mb-3 uppercase tracking-widest">Baseado em qual movimentação?</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { id: 'expense', label: 'Despesa', icon: '💸' },
+                                    { id: 'income', label: 'Receita', icon: '💰' },
+                                    { id: 'credit', label: 'Crédito', icon: '💳' }
+                                ].map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => setChallengeFormData({ ...challengeFormData, target_type: t.id })}
+                                        className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${challengeFormData.target_type === t.id
+                                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600'
+                                            : 'border-transparent bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 opacity-60'
+                                            }`}
+                                    >
+                                        <span className="text-lg">{t.icon}</span>
+                                        <span className="text-[10px] font-black uppercase">{t.label}</span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
 

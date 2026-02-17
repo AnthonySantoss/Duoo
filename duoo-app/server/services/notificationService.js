@@ -1,4 +1,4 @@
-const { Notification, User, Goal, CreditCardInvoice, CreditCard, Transaction, PushSubscription } = require('../models');
+const { Notification, User, Goal, CreditCardInvoice, CreditCard, Transaction, PushSubscription, UserConfig } = require('../models');
 const { Op } = require('sequelize');
 const webpush = require('web-push');
 const path = require('path');
@@ -289,16 +289,28 @@ class NotificationService {
      * Envia relatórios semanais de saúde financeira para todos os usuários
      * Deve ser chamado aos domingos à noite
      */
-    async sendWeeklyReports() {
+    async sendWeeklyReports(currentDay, currentHour) {
         try {
-            const users = await User.findAll({
-                where: { partner_id: { [Op.ne]: null } }
+            // Buscar usuários que configuraram para este dia e hora
+            const configs = await UserConfig.findAll({
+                where: {
+                    weekly_report_day: currentDay,
+                    weekly_report_hour: currentHour
+                },
+                include: [{
+                    model: User,
+                    where: { partner_id: { [Op.ne]: null } }
+                }]
             });
 
-            // Usar um set para evitar processar o mesmo casal duas vezes
+            if (configs.length === 0) return;
+
             const processedCouples = new Set();
 
-            for (const user of users) {
+            for (const config of configs) {
+                const user = config.User;
+                if (!user) continue;
+
                 const coupleKey = [user.id, user.partner_id].sort().join('-');
                 if (processedCouples.has(coupleKey)) continue;
                 processedCouples.add(coupleKey);

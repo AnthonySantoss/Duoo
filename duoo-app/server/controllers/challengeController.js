@@ -1,4 +1,4 @@
-const { Challenge, UserChallenge, User, Notification, Transaction } = require('../models');
+const { Challenge, UserChallenge, User, Notification, Transaction, CreditCardPurchase, CreditCard } = require('../models');
 const { Op } = require('sequelize');
 const notificationService = require('../services/notificationService');
 
@@ -38,10 +38,20 @@ exports.getChallenges = async (req, res) => {
     }
 };
 
+exports.syncAndGet = async (req, res) => {
+    try {
+        // Forçar atualização do progresso antes de retornar
+        await exports.updateProgress();
+        return exports.getChallenges(req, res);
+    } catch (error) {
+        return exports.getChallenges(req, res);
+    }
+};
+
 exports.createChallenge = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { title, description, type, target_amount, category, duration_days, points, icon } = req.body;
+        const { title, description, type, target_amount, category, duration_days, points, icon, target_type } = req.body;
 
         const challenge = await Challenge.create({
             title,
@@ -52,6 +62,7 @@ exports.createChallenge = async (req, res) => {
             duration_days,
             points,
             icon,
+            target_type: target_type || (type === 'saving' ? 'income' : 'expense'),
             is_custom: true,
             user_id: userId
         });
@@ -67,7 +78,7 @@ exports.updateChallenge = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const { title, description, target_amount, category, points, icon } = req.body;
+        const { title, description, target_amount, category, points, icon, target_type } = req.body;
 
         const challenge = await Challenge.findOne({ where: { id, user_id: userId, is_custom: true } });
         if (!challenge) return res.status(404).json({ error: 'Desafio não encontrado ou não permitido' });
@@ -78,7 +89,8 @@ exports.updateChallenge = async (req, res) => {
             target_amount,
             category,
             points,
-            icon
+            icon,
+            target_type
         });
 
         res.json(challenge);
@@ -150,38 +162,74 @@ exports.updateProgress = async () => {
                 continue;
             }
 
-            // Lógica de progresso baseada no tipo
-            if (challenge.type === 'saving') {
-                // Somar transações do tipo income na categoria 'Reserva' ou similar
-                const savings = await Transaction.sum('amount', {
-                    where: {
-                        user_id: uc.user_id,
-                        type: 'income',
-                        date: { [Op.between]: [uc.start_date, now] }
+            // 1. Identificar usuários envolvidos (Par de usuários)
+            const user = await User.findByPk(uc.user_id);
+            const userIds = [uc.user_id];
+            if (user && user.partner_id) userIds.push(user.partner_id);
+
+            // 2. Definir o que buscar baseado no target_type
+            const targetType = challenge.target_type || (challenge.type === 'saving' ? 'income' : 'expense');
+            let currentProgress = 0;
+
+            if (targetType === 'credit') {
+                // Buscar em Gastos de Cartão
+                const creditCards = await CreditCard.findAll({ where: { user_id: userIds } });
+                const cardIds = creditCards.map(cc => cc.id);
+
+                if (cardIds.length > 0) {
+                    const where = {
+                        credit_card_id: cardIds,
+                        purchase_date: { [Op.between]: [uc.start_date, now] }
+                    };
+
+                    // Se a categoria NÃO for "Outros", filtramos por ela. 
+                    // Se for "Outros", consideramos QUALQUER gasto no cartão.
+                    if (challenge.category && challenge.category !== 'Outros' && challenge.category !== '') {
+                        where.category = challenge.category;
                     }
-                });
-                uc.progress = savings || 0;
-                if (uc.progress >= challenge.target_amount) {
-                    uc.status = 'completed';
+
+                    if (challenge.type === 'no_spending') {
+                        currentProgress = await CreditCardPurchase.count({ where });
+                    } else {
+                        const sum = await CreditCardPurchase.sum('installment_amount', { where });
+                        currentProgress = Math.abs(sum || 0);
+                    }
+                }
+            } else {
+                // Buscar em Transações Normais (Receitas ou Despesas)
+                const where = {
+                    user_id: userIds,
+                    type: targetType,
+                    date: { [Op.between]: [uc.start_date, now] }
+                };
+
+                if (challenge.category && challenge.category !== 'Outros' && challenge.category !== '' && targetType !== 'income') {
+                    where.category = challenge.category;
+                }
+
+                if (challenge.type === 'no_spending') {
+                    currentProgress = await Transaction.count({ where });
+                } else {
+                    const sum = await Transaction.sum('amount', { where });
+                    currentProgress = Math.abs(sum || 0);
+                }
+            }
+
+            // 3. Atualizar Status
+            uc.progress = currentProgress;
+
+            if (challenge.type === 'no_spending') {
+                if (currentProgress > 0) {
+                    uc.status = 'failed';
                     await notificationService.createNotification(
                         uc.user_id,
-                        '🏅 Desafio Concluído!',
-                        `Parabéns! Você guardou R$ ${uc.progress} e completou o desafio "${challenge.title}"!`,
-                        'achievement'
+                        '❌ Desafio Falhou',
+                        `Você realizou um gasto do tipo "${targetType}" durante o desafio "${challenge.title}".`,
+                        'info'
                     );
                 }
             } else if (challenge.type === 'category_limit') {
-                const spent = await Transaction.sum('amount', {
-                    where: {
-                        user_id: uc.user_id,
-                        type: 'expense',
-                        category: challenge.category,
-                        date: { [Op.between]: [uc.start_date, now] }
-                    }
-                });
-                const absSpent = Math.abs(spent || 0);
-                uc.progress = absSpent;
-                if (absSpent > challenge.target_amount) {
+                if (currentProgress > challenge.target_amount) {
                     uc.status = 'failed';
                     await notificationService.createNotification(
                         uc.user_id,
@@ -190,22 +238,14 @@ exports.updateProgress = async () => {
                         'info'
                     );
                 }
-            } else if (challenge.type === 'no_spending') {
-                const count = await Transaction.count({
-                    where: {
-                        user_id: uc.user_id,
-                        type: 'expense',
-                        category: challenge.category,
-                        date: { [Op.between]: [uc.start_date, now] }
-                    }
-                });
-                if (count > 0) {
-                    uc.status = 'failed';
+            } else if (challenge.type === 'saving') {
+                if (currentProgress >= challenge.target_amount) {
+                    uc.status = 'completed';
                     await notificationService.createNotification(
                         uc.user_id,
-                        '❌ Desafio Falhou',
-                        `Você realizou gastos em ${challenge.category} durante o desafio "${challenge.title}".`,
-                        'info'
+                        '🏅 Desafio Concluído!',
+                        `Parabéns! Você alcançou o objetivo de R$ ${challenge.target_amount} e completou o desafio "${challenge.title}"!`,
+                        'achievement'
                     );
                 }
             }
@@ -225,7 +265,8 @@ exports.seedChallenges = async () => {
             category: 'Alimentação',
             duration_days: 30,
             points: 200,
-            icon: 'UtensilsCrossed'
+            icon: 'UtensilsCrossed',
+            target_type: 'expense'
         },
         {
             title: 'Economia de Energia',
@@ -235,7 +276,8 @@ exports.seedChallenges = async () => {
             target_amount: 150,
             duration_days: 30,
             points: 150,
-            icon: 'Zap'
+            icon: 'Zap',
+            target_type: 'expense'
         },
         {
             title: 'Primeira Reserva',
@@ -244,7 +286,8 @@ exports.seedChallenges = async () => {
             target_amount: 500,
             duration_days: 30,
             points: 100,
-            icon: 'PiggyBank'
+            icon: 'PiggyBank',
+            target_type: 'income'
         }
     ];
 
