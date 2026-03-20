@@ -316,6 +316,68 @@ router.put('/:id', auth, async (req, res) => {
             }
         }
 
+        // Lógica: Se for Despesa e mudar para "Pago"
+        if (item.type === 'expense' && status === 'paid' && item.status !== 'paid') {
+            // Se já tem um transaction_id, não cria de novo (prevenção extra contra double-click)
+            if (!item.transaction_id) {
+                const walletId = item.wallet_id || payload.wallet_id;
+
+                if (!walletId) {
+                    await t.rollback();
+                    return res.status(400).json({ error: 'É necessário informar uma carteira para pagar esta despesa.' });
+                }
+
+                const wallet = await Wallet.findByPk(walletId, { transaction: t, lock: t.LOCK.UPDATE });
+                if (!wallet || wallet.user_id !== req.user.id) {
+                    await t.rollback();
+                    return res.status(404).json({ error: 'Carteira não encontrada' });
+                }
+
+                const deductionAmount = -Math.abs(parseFloat(item.amount));
+
+                // Criar a transação financeira real
+                const newTransaction = await Transaction.create({
+                    title: `${item.title} (Recorrência)`,
+                    amount: deductionAmount,
+                    category: 'Despesa Variável', // Categoria padrão adaptável
+                    date: new Date(),
+                    type: 'expense',
+                    wallet_id: walletId,
+                    user_id: req.user.id
+                }, { transaction: t });
+
+                // Salva o link da transação no item recorrente para controle futuro
+                payload.transaction_id = newTransaction.id;
+
+                // Atualizar saldo da carteira (desconto)
+                wallet.balance = parseFloat(wallet.balance) + deductionAmount;
+                await wallet.save({ transaction: t });
+            }
+        }
+
+        // Estorno: Se estava Pago e mudou para Pendente
+        if (item.type === 'expense' && item.status === 'paid' && status === 'pending') {
+            const walletId = item.wallet_id;
+
+            // Reverte o saldo da carteira (devolvendo dinheiro)
+            if (walletId) {
+                const wallet = await Wallet.findByPk(walletId, { transaction: t, lock: t.LOCK.UPDATE });
+                if (wallet) {
+                    wallet.balance = parseFloat(wallet.balance) + Math.abs(parseFloat(item.amount));
+                    await wallet.save({ transaction: t });
+                }
+            }
+
+            // Remove a transação física associada se ela existir
+            if (item.transaction_id) {
+                await Transaction.destroy({
+                    where: { id: item.transaction_id, user_id: req.user.id },
+                    transaction: t
+                });
+                payload.transaction_id = null;
+            }
+        }
+
         await item.update(payload, { transaction: t });
         await t.commit();
         res.json(item);

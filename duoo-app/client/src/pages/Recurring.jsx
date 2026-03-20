@@ -111,8 +111,8 @@ const Recurring = () => {
     const handleUpdateStatus = async (status) => {
         if (!selectedItem) return;
 
-        // Se for receita ou fatura e estiver recebendo/pagando, garantir que tenha carteira
-        if ((selectedItem.type === 'income' && status === 'received') || (selectedItem.isInvoice && status === 'paid')) {
+        // Se for receita ou despesa e estiver recebendo/pagando, garantir que tenha carteira
+        if ((selectedItem.type === 'income' && status === 'received') || (selectedItem.type === 'expense' && status === 'paid')) {
             if (!updateWalletId) {
                 showToast(`Selecione uma carteira para ${selectedItem.type === 'income' ? 'receber' : 'pagar'}!`, "error");
                 return;
@@ -345,7 +345,7 @@ const Recurring = () => {
                             <p className="text-sm text-slate-400">{formatDisplayDate(selectedItem.date)}</p>
                         </div>
 
-                        {((selectedItem.type === 'income' && selectedItem.status !== 'received') || (selectedItem.isInvoice && selectedItem.status !== 'paid')) && (
+                        {((selectedItem.type === 'income' && selectedItem.status !== 'received') || (selectedItem.type === 'expense' && selectedItem.status !== 'paid')) && (
                             <div>
                                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">
                                     {selectedItem.type === 'income' ? 'Carteira para Recebimento' : 'Pagar com a Carteira'}

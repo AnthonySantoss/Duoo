@@ -367,7 +367,45 @@ class NotificationService {
     }
 
     /**
+     * Envia lembretes diários para usuários que ativaram a funcionalidade
+     * Deve ser chamado hora em hora
+     */
+    async sendDailyReminders(currentHour) {
+        try {
+            const configs = await UserConfig.findAll({
+                where: {
+                    daily_reminder_enabled: true,
+                    daily_reminder_hour: currentHour
+                },
+                include: [{ model: User }]
+            });
+
+            if (configs.length === 0) return;
+
+            const processedUsers = new Set();
+
+            for (const config of configs) {
+                const user = config.User;
+                if (!user) continue;
+
+                if (processedUsers.has(user.id)) continue;
+                processedUsers.add(user.id);
+
+                const title = "⏰ Tempo voa, mas seu dinheiro não";
+                const message = "Já registrou seus gastos de hoje? Manter tudo organizado leva só um minuto!";
+
+                await this.createNotification(user.id, title, message, 'reminder', '/dashboard');
+            }
+
+            console.log(`✅ Daily reminders sent to ${processedUsers.size} users`);
+        } catch (error) {
+            console.error('Error sending daily reminders:', error);
+        }
+    }
+
+    /**
      * Envia notificação push para todas as inscrições de um usuário
+
      */
     async sendPushToUser(userId, data) {
         try {
@@ -383,7 +421,7 @@ class NotificationService {
                 title: data.title,
                 body: data.body,
                 icon: '/icon-192.png',
-                badge: '/icon-192.png',
+                badge: '/badge.png', // O badge no Android DEVE ser totalmente branco com fundo transparente
                 data: {
                     link: data.link || '/',
                     id: data.id

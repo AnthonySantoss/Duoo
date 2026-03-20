@@ -35,6 +35,10 @@ function scheduleNotificationJobs() {
         // Weekly Health Report (Dynamic based on UserConfig)
         console.log(`📊 Checking for weekly reports (Day ${day}, Hour ${hour})...`);
         notificationService.sendWeeklyReports(day, hour);
+
+        // Daily Reminder (Dynamic based on UserConfig)
+        console.log(`⏰ Checking for daily reminders (Hour ${hour})...`);
+        notificationService.sendDailyReminders(hour);
     }, checkInterval);
 
     console.log('✅ Notification jobs scheduled');

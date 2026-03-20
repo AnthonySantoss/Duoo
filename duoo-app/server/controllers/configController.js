@@ -23,7 +23,7 @@ exports.getConfig = async (req, res) => {
 exports.updateConfig = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { large_transaction_limit, weekly_report_day, weekly_report_hour, notifications_enabled } = req.body;
+        const { large_transaction_limit, weekly_report_day, weekly_report_hour, notifications_enabled, daily_reminder_enabled, daily_reminder_hour } = req.body;
 
         let config = await UserConfig.findOne({ where: { user_id: userId } });
 
@@ -33,14 +33,18 @@ exports.updateConfig = async (req, res) => {
                 large_transaction_limit,
                 weekly_report_day,
                 weekly_report_hour,
-                notifications_enabled
+                notifications_enabled,
+                daily_reminder_enabled,
+                daily_reminder_hour
             });
         } else {
             await config.update({
                 large_transaction_limit,
                 weekly_report_day,
                 weekly_report_hour,
-                notifications_enabled
+                notifications_enabled,
+                daily_reminder_enabled,
+                daily_reminder_hour
             });
         }
 

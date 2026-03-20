@@ -1,5 +1,6 @@
 const { Notification, User, PushSubscription } = require('../models');
 const { Op } = require('sequelize');
+const notificationService = require('../services/notificationService');
 
 /**
  * Busca notificações do usuário
@@ -148,13 +149,13 @@ exports.sendToPartner = async (req, res) => {
             return res.status(400).json({ error: 'You do not have a linked partner' });
         }
 
-        const notification = await Notification.create({
-            user_id: user.partner_id,
-            title: `Recado de ${user.name} ❤️`,
+        const notification = await notificationService.createNotification(
+            user.partner_id,
+            `Recado de ${user.name} ❤️`,
             message,
-            type: 'note',
-            read: false
-        });
+            'note',
+            '/dashboard'
+        );
 
         res.status(201).json(notification);
     } catch (error) {

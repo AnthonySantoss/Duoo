@@ -27,6 +27,14 @@ const UserConfig = sequelize.define('UserConfig', {
     notifications_enabled: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
+    },
+    daily_reminder_enabled: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    daily_reminder_hour: {
+        type: DataTypes.INTEGER,
+        defaultValue: 20 // 20:00
     }
 });
 

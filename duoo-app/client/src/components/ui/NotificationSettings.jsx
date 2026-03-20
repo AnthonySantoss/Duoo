@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, BellOff, Check, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
 import Card from './Card';
+import api from '../../services/api';
 
 const NotificationSettings = () => {
     const {
@@ -12,13 +13,33 @@ const NotificationSettings = () => {
 
     const [enabled, setEnabled] = useState(false);
     const [permission, setPermission] = useState('default');
+    const [config, setConfig] = useState({
+        daily_reminder_enabled: false,
+        daily_reminder_hour: 20
+    });
 
     useEffect(() => {
         setEnabled(isBrowserNotificationEnabled());
         if ('Notification' in window) {
             setPermission(Notification.permission);
         }
+        
+        api.get('/config').then(res => {
+            if (res.data) {
+                setConfig(res.data);
+            }
+        }).catch(err => console.error("Falhar ao carregar configs:", err));
     }, []);
+
+    const updateConfig = async (newConfigParams) => {
+        try {
+            const updated = { ...config, ...newConfigParams };
+            setConfig(updated); // Update UI optimistically
+            await api.put('/config', updated);
+        } catch (error) {
+            console.error("Erro ao atualizar configs", error);
+        }
+    };
 
     const handleToggle = async () => {
         if (!enabled) {
@@ -142,6 +163,51 @@ const NotificationSettings = () => {
                             </p>
                         </div>
                     )}
+
+                    {/* Lembrete Diário Molecule */}
+                    <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold text-slate-900 dark:text-white">
+                                Lembrete de Atualização
+                            </h4>
+                            <button
+                                onClick={() => updateConfig({ daily_reminder_enabled: !config.daily_reminder_enabled })}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    config.daily_reminder_enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        config.daily_reminder_enabled ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                        <p className="text-sm text-slate-500 mb-3">
+                            Quer ser lembrado de registrar seus gastos diariamente? O Duoo te envia uma notificação móvel no horário definido.
+                        </p>
+                        
+                        {config.daily_reminder_enabled && (
+                            <div className="flex items-center gap-3 mt-4">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                    Horário ideal:
+                                </label>
+                                <select 
+                                    aria-label="Definir horário do lembrete diário"
+                                    value={config.daily_reminder_hour}
+                                    onChange={(e) => updateConfig({ daily_reminder_hour: parseInt(e.target.value) })}
+                                    className="rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
+                                >
+                                    {[...Array(24).keys()].map(h => (
+                                        <option key={h} value={h}>
+                                            {h.toString().padStart(2, '0')}:00
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             </div>
         </Card>

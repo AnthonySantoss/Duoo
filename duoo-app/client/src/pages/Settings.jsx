@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import Toast from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import NotificationSettings from '../components/ui/NotificationSettings';
 
 const Settings = () => {
     const { user, partner, hasPartner, logout, setUser, setPartner, setHasPartner } = useAuth();
@@ -281,6 +282,8 @@ const Settings = () => {
                     </button>
                 </div>
             </Card>
+
+            <NotificationSettings />
 
             {/* Parceiro */}
             <Card className="space-y-6">
