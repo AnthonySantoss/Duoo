@@ -1,6 +1,7 @@
 services:
   - type: web
     name: duoo-api
+    plan: free
     runtime: node
     rootDir: duoo-app/server
     buildCommand: npm ci
