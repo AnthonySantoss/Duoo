@@ -1,4 +1,5 @@
 const { execSync } = require('child_process');
+const sequelize = require('./config/database');
 
 console.log('--- Iniciando Ciclo de Migrações Seguras (Idempotentes) ---');
 
@@ -12,7 +13,7 @@ const migrations = [
     'fix_goals_table.js',
     'fix-nan-goals.js',
 
-    // --- Feature: Pluggy & Banking Integrations ---
+    // --- Feature: Legacy banking columns (kept for existing databases) ---
     'migrate-pluggy.js',
     'migrate-creditcards-pluggy.js',
     'migrate-goals-pluggy.js',
@@ -34,17 +35,28 @@ const migrations = [
     'mark_old_notifications_seen.js',
     'fix-challenges-table.js',
     'migrate-challenge-type.js',
-    'migrate-feb16_v2.js'
+    'migrate-feb16_v2.js',
+    'migrate-notification-capture.js'
 ];
 
 async function runAll() {
     console.log('\n--- Sincronizando Modelos (Base) ---');
     try {
-        const { sequelize } = require('./models');
+        require('./models');
         await sequelize.sync({ force: false });
         console.log('✅ Base de dados sincronizada.');
     } catch (error) {
         console.error('❌ Erro ao sincronizar base:', error.message);
+        throw error;
+    }
+
+    // As migrações legadas usam SQL específico do SQLite. Em um banco novo
+    // PostgreSQL, o schema atual dos modelos já é criado pelo sync acima.
+    // Isso evita executar PRAGMA/AUTOINCREMENT/renomeações incompatíveis.
+    if (sequelize.getDialect() === 'postgres') {
+        console.log('✅ PostgreSQL detectado: migrações legadas SQLite ignoradas.');
+        await sequelize.close();
+        return;
     }
 
     for (const script of migrations) {

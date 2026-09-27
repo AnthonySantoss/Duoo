@@ -1,4 +1,4 @@
-const { Transaction, Wallet, User } = require('../models');
+const { Transaction, Wallet } = require('../models');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
@@ -28,6 +28,8 @@ const parseCSV = (buffer) => {
         if (content.charCodeAt(0) === 0xFEFF) {
             content = content.slice(1);
         }
+
+        const separator = content.split('\n', 1)[0].includes(';') ? ';' : ',';
 
         const stream = Readable.from(content);
 
@@ -152,11 +154,7 @@ exports.importFile = async (req, res) => {
             return res.status(404).json({ error: 'Carteira não encontrada' });
         }
 
-        const user = await User.findByPk(req.user.id);
-        const allowedUsers = [req.user.id];
-        if (user.partner_id) allowedUsers.push(user.partner_id);
-
-        if (!allowedUsers.includes(wallet.user_id)) {
+        if (wallet.user_id !== req.user.id) {
             return res.status(403).json({ error: 'Você não tem permissão para usar esta carteira' });
         }
 

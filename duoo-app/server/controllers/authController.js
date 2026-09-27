@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/env');
+const { setAuthCookie, clearAuthCookie } = require('../utils/authCookie');
 const {
     sequelize, User, Wallet, Transaction, Goal, CreditCard,
     CreditCardPurchase, CreditCardInvoice, Simulation, Loan,
@@ -22,10 +24,15 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({ name, email, password_hash: hashedPassword });
 
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '1d' });
-        res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email } });
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        setAuthCookie(res, token);
+        res.status(201).json({ user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error registering user:', error);
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ error: 'Este email já está em uso' });
+        }
+        res.status(500).json({ error: 'Erro ao criar conta' });
     }
 };
 
@@ -33,16 +40,23 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const user = await User.findOne({ where: { email } });
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+        if (!isMatch) return res.status(401).json({ error: 'Credenciais inválidas' });
 
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '1d' });
-        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        setAuthCookie(res, token);
+        res.json({ user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error logging in:', error);
+        res.status(500).json({ error: 'Erro ao realizar login' });
     }
+};
+
+exports.logout = async (req, res) => {
+    clearAuthCookie(res);
+    res.status(204).send();
 };
 
 exports.getMe = async (req, res) => {
@@ -76,7 +90,8 @@ exports.getMe = async (req, res) => {
             hasPartner: !!partner
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error fetching current user:', error);
+        res.status(500).json({ error: 'Erro ao carregar usuário' });
     }
 };
 
@@ -125,10 +140,6 @@ exports.changePassword = async (req, res) => {
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
-        }
-
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres' });
         }
 
         const user = await User.findByPk(userId);

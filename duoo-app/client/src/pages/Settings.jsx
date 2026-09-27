@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, LogOut, Moon, Sun, Bell, User, Mail, Lock, Trash2, UserPlus, UserMinus, Save, X } from 'lucide-react';
+import { Settings as SettingsIcon, LogOut, Moon, Sun, Bell, User, Mail, Lock, Trash2, UserPlus, UserMinus, Save, X, Smartphone, CheckCircle2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -284,6 +284,29 @@ const Settings = () => {
             </Card>
 
             <NotificationSettings />
+
+            {/* Captura nativa do Android */}
+            <Card className="border-emerald-100 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <div className="flex items-start gap-4">
+                    <div className="rounded-2xl bg-emerald-500 p-3 text-white shadow-sm">
+                        <Smartphone size={21} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h5 className="font-semibold text-slate-900 dark:text-white">Captura nativa do Android</h5>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                                <CheckCircle2 size={13} /> Ativa
+                            </span>
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            O Duoo captura as notificações de transações permitidas no seu Android e organiza os lançamentos automaticamente.
+                        </p>
+                        <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                            O aplicativo não acessa sua conta bancária nem usa Open Finance. Para continuar capturando, mantenha as permissões de notificações ativas.
+                        </p>
+                    </div>
+                </div>
+            </Card>
 
             {/* Parceiro */}
             <Card className="space-y-6">

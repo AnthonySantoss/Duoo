@@ -244,6 +244,14 @@ exports.getPurchases = async (req, res) => {
             return res.status(404).json({ error: 'Cartão não encontrado' });
         }
 
+        const user = await User.findByPk(req.user.id);
+        const allowedUsers = [req.user.id];
+        if (user.partner_id) allowedUsers.push(user.partner_id);
+
+        if (!allowedUsers.includes(creditCard.user_id)) {
+            return res.status(403).json({ error: 'Você não tem permissão para consultar este cartão' });
+        }
+
         const purchases = await CreditCardPurchase.findAll({
             where: { credit_card_id },
             order: [['purchase_date', 'DESC']]

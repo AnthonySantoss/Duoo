@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAchievements } from '../context/AchievementContext';
 import AchievementModal from '../components/ui/AchievementModal';
 import NotificationDropdown from '../components/ui/NotificationDropdown';
-import TransactionModal from '../components/ui/TransactionModal';
+import TransactionModal from '../components/ui/TransactionModalRedesigned';
 
 
 const DashboardLayout = () => {
@@ -25,7 +25,6 @@ const DashboardLayout = () => {
         return location.pathname === path || location.pathname.startsWith(`${path}/`);
     };
 
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
     const closeSidebar = () => setIsSidebarOpen(false);
 
     const navItems = [
@@ -214,53 +213,45 @@ const DashboardLayout = () => {
             </main>
 
             {/* Bottom Navigation Mobile - fora do main para posicionamento fixo correto */}
-            <nav className="bottom-nav md:hidden">
+            <nav className="bottom-nav md:hidden" aria-label="Navegação principal">
                 <Link
                     to="/dashboard"
                     className={`nav-btn ${isActive('/dashboard') && !isActive('/dashboard/') ? 'active' : ''}`}
+                    aria-label="Início"
                 >
                     <LayoutDashboard size={24} strokeWidth={isActive('/dashboard') && !isActive('/dashboard/') ? 2.5 : 2} />
-                    <span className="nav-btn-indicator"></span>
+                    <span className="nav-btn-label">Início</span>
                 </Link>
 
                 <Link
                     to="/dashboard/transactions"
                     className={`nav-btn ${isActive('/dashboard/transactions') ? 'active' : ''}`}
+                    aria-label="Transações"
                 >
                     <ArrowRightLeft size={24} strokeWidth={isActive('/dashboard/transactions') ? 2.5 : 2} />
-                    <span className="nav-btn-indicator"></span>
+                    <span className="nav-btn-label">Transações</span>
                 </Link>
 
-                {!location.pathname.includes('/recurring') ? (
-                    <button
-                        className="nav-add-btn group"
-                        onClick={() => setIsTransactionModalOpen(true)}
-                    >
-                        <div className="nav-add-btn-inner">
-                            <PlusCircle size={28} className="nav-add-icon" />
-                        </div>
-                        <div className="nav-add-label">
-                            Lançar
-                        </div>
-                    </button>
-                ) : (
-                    <div className="w-[72px]" aria-hidden="true" />
-                )}
+                <button className="nav-add-btn group" onClick={() => setIsTransactionModalOpen(true)} aria-label="Lançar transação">
+                    <span className="nav-add-btn-inner"><PlusCircle size={27} className="nav-add-icon" /></span>
+                </button>
 
                 <Link
                     to="/dashboard/goals"
                     className={`nav-btn ${isActive('/dashboard/goals') ? 'active' : ''}`}
+                    aria-label="Objetivos"
                 >
                     <Target size={24} strokeWidth={isActive('/dashboard/goals') ? 2.5 : 2} />
-                    <span className="nav-btn-indicator"></span>
+                    <span className="nav-btn-label">Objetivos</span>
                 </Link>
 
                 <Link
                     to="/dashboard/menu"
                     className={`nav-btn ${isActive('/dashboard/menu') ? 'active' : ''}`}
+                    aria-label="Menu"
                 >
                     <MenuIcon size={24} strokeWidth={isActive('/dashboard/menu') ? 2.5 : 2} />
-                    <span className="nav-btn-indicator"></span>
+                    <span className="nav-btn-label">Menu</span>
                 </Link>
             </nav>
 

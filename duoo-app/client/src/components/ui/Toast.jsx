@@ -16,13 +16,13 @@ const Toast = ({ message, type = 'info', onClose, duration = 3000 }) => {
     };
 
     const styles = {
-        success: "bg-emerald-500 text-white",
-        error: "bg-rose-500 text-white",
-        info: "bg-slate-800 text-white"
+        success: "bg-emerald-600 text-white",
+        error: "bg-rose-600 text-white",
+        info: "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
     };
 
     return (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg shadow-black/20 animate-in slide-in-from-right-full duration-300 ${styles[type]}`}>
+        <div role="status" aria-live="polite" className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg shadow-black/15 animate-in slide-in-from-right-full duration-300 ${styles[type]}`}>
             {icons[type]}
             <p className="font-medium text-sm">{message}</p>
             <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-lg transition-colors">

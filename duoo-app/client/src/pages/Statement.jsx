@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { UploadCloud, FileText, FileSpreadsheet, Download, Building2, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileText, FileSpreadsheet, Download, Smartphone, CheckCircle, AlertCircle } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
-import PluggyConnect from '../components/ui/PluggyConnect';
-import ConnectedAccounts from '../components/ui/ConnectedAccounts';
 import api from '../services/api';
 import Toast from '../components/ui/Toast';
 
@@ -34,18 +32,6 @@ const Statement = () => {
         } catch (error) {
             console.error('Failed to fetch wallets:', error);
         }
-    };
-
-    const handlePluggySuccess = (itemData) => {
-        setToast({ message: 'Banco conectado! Sincronizando dados...', type: 'success' });
-        // Refresh wallets after sync
-        setTimeout(() => {
-            fetchWallets();
-        }, 2000);
-    };
-
-    const handlePluggyError = (error) => {
-        setToast({ message: 'Erro ao conectar banco. Tente novamente.', type: 'error' });
     };
 
     const handleDrag = (e) => {
@@ -139,72 +125,36 @@ const Statement = () => {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Pluggy Bank Connection */}
+            {/* Android notification capture */}
             <div className="space-y-6">
                 <div className="space-y-2">
                     <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Building2 className="text-emerald-500" />
-                        Conectar Banco via Open Finance
+                        <Smartphone className="text-emerald-500" />
+                        Captura automática pelo Android
                     </h3>
                     <p className="text-slate-500 text-sm">
-                        Conecte sua conta bancária de forma segura e sincronize suas transações automaticamente.
+                        Registre compras, Pix e transferências a partir das notificações enviadas pelo seu banco.
                     </p>
                 </div>
 
                 <Card className="space-y-5">
-                    <PluggyConnect
-                        onSuccess={handlePluggySuccess}
-                        onError={handlePluggyError}
-                    />
-
-                    <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
-                        <h4 className="font-semibold text-sm text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-                            <RefreshCw size={16} />
-                            Como funciona?
-                        </h4>
-                        <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                            <li className="flex gap-2">
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">1.</span>
-                                <span>Clique no botão para abrir a conexão segura</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">2.</span>
-                                <span>Escolha seu banco e faça login normalmente</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">3.</span>
-                                <span>Autorize o acesso aos seus dados financeiros</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">4.</span>
-                                <span>Suas transações serão sincronizadas automaticamente!</span>
-                            </li>
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-5">
+                        <h4 className="font-semibold mb-2">Como configurar</h4>
+                        <ol className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                            <li><span className="font-bold text-emerald-600">1.</span> Instale o Duoo Capture no Android.</li>
+                            <li><span className="font-bold text-emerald-600">2.</span> Faça login e escolha a carteira.</li>
+                            <li><span className="font-bold text-emerald-600">3.</span> Permita o acesso às notificações.</li>
+                            <li><span className="font-bold text-emerald-600">4.</span> O Duoo registra os gastos compatíveis automaticamente.</li>
                         </ol>
                     </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl">
-                        <p className="text-xs text-blue-800 dark:text-blue-300">
-                            <strong>🔒 Seguro e Confiável:</strong> A conexão é feita diretamente com seu banco através do Open Finance do Banco Central. Seus dados são criptografados e protegidos.
+                    <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
+                        <h4 className="font-semibold text-sm text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                            <Smartphone size={16} /> Privacidade
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                            O aplicativo Android processa a notificação localmente e envia apenas os dados estruturados da transação. O texto completo da notificação não é enviado ao Duoo.
                         </p>
                     </div>
-                </Card>
-
-                {/* Connected Accounts */}
-                <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Building2 className="text-blue-500" />
-                        Contas Conectadas
-                    </h3>
-                    <p className="text-slate-500 text-sm">
-                        Gerencie suas conexões bancárias ativas.
-                    </p>
-                </div>
-
-                <Card>
-                    <ConnectedAccounts onDisconnect={() => {
-                        setToast({ message: 'Banco desconectado com sucesso!', type: 'success' });
-                        fetchWallets();
-                    }} />
                 </Card>
             </div>
 

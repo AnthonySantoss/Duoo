@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, X, Check, AlertCircle, TrendingUp, Target, Wallet, CreditCard } from 'lucide-react';
 import api from '../../services/api';
 
@@ -7,6 +7,16 @@ const NotificationDropdown = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const dropdownRef = useRef(null);
+
+    const fetchNotifications = useCallback(async () => {
+        try {
+            const response = await api.get('/notifications');
+            setNotifications(response.data);
+            setUnreadCount(response.data.filter(n => !n.read).length);
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        }
+    }, []);
 
     useEffect(() => {
         fetchNotifications();
@@ -22,7 +32,7 @@ const NotificationDropdown = () => {
             clearInterval(interval);
             window.removeEventListener('refresh-notifications', handleRefresh);
         };
-    }, []);
+    }, [fetchNotifications]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -36,16 +46,6 @@ const NotificationDropdown = () => {
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
-
-    const fetchNotifications = async () => {
-        try {
-            const response = await api.get('/notifications');
-            setNotifications(response.data);
-            setUnreadCount(response.data.filter(n => !n.read).length);
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        }
-    };
 
     const markAsRead = async (notificationId) => {
         try {

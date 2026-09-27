@@ -11,36 +11,32 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const loadUser = async () => {
-            const token = localStorage.getItem('token');
             const storedUser = localStorage.getItem('user');
 
-            if (token) {
-                // Se temos usuário no localStorage, já preenchemos para evitar flash de login
-                if (storedUser) {
-                    try {
-                        const parsedUser = JSON.parse(storedUser);
-                        setUser(parsedUser);
-                    } catch (e) {
-                        console.error('Error parsing stored user');
-                    }
-                }
-
+            // Se temos usuário no localStorage, já preenchemos para evitar flash de login
+            if (storedUser) {
                 try {
-                    console.log('[AuthContext] Refreshing user data from server...');
-                    const res = await api.get('/auth/me');
-                    setUser(res.data.user);
-                    setPartner(res.data.partner);
-                    setHasPartner(res.data.hasPartner);
+                    const parsedUser = JSON.parse(storedUser);
+                    setUser(parsedUser);
+                } catch {
+                    console.error('Error parsing stored user');
+                }
+            }
 
-                    // Atualiza cache local
-                    localStorage.setItem('user', JSON.stringify(res.data.user));
-                } catch (error) {
-                    console.error('[AuthContext] Failed to load user:', error.response?.status);
-                    if (error.response?.status === 401) {
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        setUser(null);
-                    }
+            try {
+                console.log('[AuthContext] Refreshing user data from server...');
+                const res = await api.get('/auth/me');
+                setUser(res.data.user);
+                setPartner(res.data.partner);
+                setHasPartner(res.data.hasPartner);
+
+                // Atualiza cache local
+                localStorage.setItem('user', JSON.stringify(res.data.user));
+            } catch (error) {
+                console.error('[AuthContext] Failed to load user:', error.response?.status);
+                if (error.response?.status === 401) {
+                    localStorage.removeItem('user');
+                    setUser(null);
                 }
             }
             setLoading(false);
@@ -50,7 +46,6 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         const res = await api.post('/auth/login', { email, password });
-        localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
 
         setUser(res.data.user);
@@ -65,7 +60,6 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (name, email, password) => {
         const res = await api.post('/auth/register', { name, email, password });
-        localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         setPartner(null);
         setHasPartner(false);
@@ -73,7 +67,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         console.log('[AuthContext] Logging out...');
-        localStorage.removeItem('token');
+        api.post('/auth/logout').catch(() => {});
         localStorage.removeItem('user');
         setUser(null);
         setPartner(null);

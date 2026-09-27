@@ -5,7 +5,9 @@ module.exports = (err, req, res, next) => {
     console.error(' [Error Handler]:', err.stack);
 
     const statusCode = err.statusCode || 500;
-    const message = err.message || 'Ocorreu um erro interno no servidor';
+    const message = process.env.NODE_ENV === 'development'
+        ? (err.message || 'Ocorreu um erro interno no servidor')
+        : 'Ocorreu um erro interno no servidor';
 
     // Detailed error only in development
     const response = {

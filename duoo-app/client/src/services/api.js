@@ -1,15 +1,14 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api', // Use Vite proxy
+    // Local development uses Vite's proxy. Hosted frontends provide the API
+    // origin through VITE_API_URL, for example https://api.example.com/api.
+    baseURL: import.meta.env.VITE_API_URL || '/api',
+    withCredentials: true,
 });
 
 // Request interceptor - Add token to requests
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
 });
 

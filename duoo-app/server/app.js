@@ -1,5 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
+const { corsOrigins } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
@@ -12,19 +16,40 @@ const importRoutes = require('./routes/importRoutes');
 const creditCardRoutes = require('./routes/creditCardRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
-const pluggyRoutes = require('./routes/pluggyRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const achievementRoutes = require('./routes/achievementRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const capturedTransactionRoutes = require('./routes/capturedTransactionRoutes');
 
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(helmet());
 
-app.use('/api/auth', authRoutes);
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', service: 'duoo-api' });
+});
+
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || corsOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('Origin not allowed by CORS'));
+    }
+}));
+app.use(express.json({ limit: '100kb' }));
+app.use(cookieParser());
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas. Tente novamente mais tarde.' }
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/goals', goalRoutes);
@@ -37,11 +62,11 @@ app.use('/api/credit-cards', creditCardRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/loans', require('./routes/loanRoutes'));
-app.use('/api/pluggy', pluggyRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/captured-transactions', capturedTransactionRoutes);
 app.use('/api/challenges', require('./routes/challengeRoutes'));
 app.use('/api/recurring', require('./routes/recurringRoutes'));
 app.use('/api/config', require('./routes/configRoutes'));

@@ -52,6 +52,23 @@ const Transaction = sequelize.define('Transaction', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    capture_source: {
+        type: DataTypes.STRING(32),
+        allowNull: true
+    },
+    source_external_id: {
+        type: DataTypes.STRING(128),
+        allowNull: true,
+        unique: true
+    },
+    source_package: {
+        type: DataTypes.STRING(160),
+        allowNull: true
+    },
+    capture_confidence: {
+        type: DataTypes.DECIMAL(5, 4),
+        allowNull: true
+    },
     split_with_partner: {
         type: DataTypes.BOOLEAN,
         defaultValue: false

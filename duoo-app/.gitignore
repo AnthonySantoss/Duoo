@@ -1,31 +1,15 @@
-# Dependencies
 node_modules/
-package-lock.json
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Database
-*.sqlite
-*.db
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
+.gradle/
 .idea/
-*.swp
-*.swo
-
-# Build
+android-capture/.gradle/
+android-capture/.idea/
 dist/
-build/
+dev-dist/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite.*
+*.sqlite-journal
+*.log
+coverage/

@@ -2,25 +2,26 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AchievementProvider } from './context/AchievementContext';
 import { NotificationProvider } from './context/NotificationContext';
-import Auth from './pages/Auth';
+import Auth from './pages/AuthRedesigned';
+import Onboarding from './pages/Onboarding';
 import DashboardLayout from './pages/DashboardLayout';
-import Overview from './pages/Overview';
-import Transactions from './pages/Transactions';
-import Goals from './pages/Goals';
-import Wallets from './pages/Wallets';
-import Bank from './pages/Bank';
+import Overview from './pages/OverviewRedesigned';
+import Transactions from './pages/TransactionsRedesigned';
+import Goals from './pages/GoalsRedesigned';
+import Wallets from './pages/WalletsRedesigned';
+import Bank from './pages/BankRedesigned';
 
 import LinkAccounts from './pages/LinkAccounts';
 import Settings from './pages/Settings';
-import Achievements from './pages/Achievements';
-import Simulation from './pages/Simulation';
-import Forecast from './pages/Forecast';
+import Achievements from './pages/AchievementsRedesigned';
+import Simulation from './pages/SimulationRedesigned';
+import Forecast from './pages/ForecastRedesigned';
 import Statement from './pages/Statement';
-import Investments from './pages/Investments';
-import EconomyForecast from './pages/EconomyForecast';
-import Recurring from './pages/Recurring';
-import Challenges from './pages/Challenges';
-import MobileMenu from './pages/MobileMenu';
+import Investments from './pages/InvestmentsRedesigned';
+import EconomyForecast from './pages/EconomyForecastRedesigned';
+import Recurring from './pages/RecurringRedesigned';
+import Challenges from './pages/ChallengesRedesigned';
+import MobileMenu from './pages/MobileMenuRedesigned';
 import PWAInstallPrompt from './components/ui/PWAInstallPrompt';
 
 import { useAuth } from './context/AuthContext';
@@ -49,6 +50,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Auth />} />
+              <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<Overview />} />

@@ -1,0 +1,12 @@
+<resources>
+    <color name="duoo_icon_background">#0A8F63</color>
+    <style name="Theme.Material3.DayNight.NoActionBar" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#0A8F63</item>
+        <item name="colorSecondary">#0A8F63</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F2F2F7</item>
+        <item name="android:navigationBarColor">#F2F2F7</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

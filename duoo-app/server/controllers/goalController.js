@@ -157,6 +157,11 @@ exports.addProgress = async (req, res) => {
                 return res.status(404).json({ error: 'Carteira não encontrada' });
             }
 
+            if (!allowedUsers.includes(wallet.user_id)) {
+                await t.rollback();
+                return res.status(403).json({ error: 'Você não tem permissão para usar esta carteira' });
+            }
+
             const deductionAmount = -Math.abs(parseFloat(amount));
 
             // Deduct from wallet (Create Expense Transaction)
