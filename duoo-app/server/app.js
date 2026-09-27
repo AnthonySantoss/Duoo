@@ -21,6 +21,8 @@ const achievementRoutes = require('./routes/achievementRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const capturedTransactionRoutes = require('./routes/capturedTransactionRoutes');
+const fs = require('fs');
+const path = require('path');
 
 
 const app = express();
@@ -71,17 +73,24 @@ app.use('/api/challenges', require('./routes/challengeRoutes'));
 app.use('/api/recurring', require('./routes/recurringRoutes'));
 app.use('/api/config', require('./routes/configRoutes'));
 
-// Global Error Handler (Must be after all routes)
-app.use(require('./middleware/errorHandler'));
+// The Render API service is deployed without the frontend build. The combined
+// Docker image still serves the frontend because it contains server/public.
+const frontendIndex = path.join(__dirname, 'public', 'index.html');
+const shouldServeFrontend = process.env.SERVE_FRONTEND === 'true' || fs.existsSync(frontendIndex);
 
-if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    // Serve static files from the 'public' directory (where we'll copy the React build)
+if (process.env.NODE_ENV === 'production' && shouldServeFrontend) {
     app.use(express.static(path.join(__dirname, 'public')));
 
     app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'public/index.html'));
+        res.sendFile(frontendIndex);
     });
 }
+
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+});
+
+// Global Error Handler (Must be after all routes and fallbacks)
+app.use(require('./middleware/errorHandler'));
 
 module.exports = app;
