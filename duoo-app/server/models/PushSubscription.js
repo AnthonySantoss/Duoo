@@ -8,7 +8,8 @@ const PushSubscription = sequelize.define('PushSubscription', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        // User.id is UUID across all supported databases.
+        type: DataTypes.UUID,
         allowNull: false
     },
     subscription_data: {
