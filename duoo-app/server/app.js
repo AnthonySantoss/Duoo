@@ -43,7 +43,8 @@ app.use(cors({
     origin(origin, callback) {
         if (!origin || corsOrigins.includes(origin)) return callback(null, true);
         return callback(new Error('Origin not allowed by CORS'));
-    }
+    },
+    credentials: true
 }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
