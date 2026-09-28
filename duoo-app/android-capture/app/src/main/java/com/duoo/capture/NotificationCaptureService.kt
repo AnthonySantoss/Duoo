@@ -24,11 +24,17 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (store.get("consent") != "accepted" || store.get("enabled") != "true") return
         val captured = NotificationParser.parse(sbn) ?: return
-        val walletId = store.get("wallet_id")?.toLongOrNull() ?: 0L
-        if (walletId <= 0) return
+        val isCreditCard = captured.sourceType == "credit_card"
+        val walletId = if (isCreditCard) 0L else store.get("wallet_map_${captured.sourcePackage}")?.toLongOrNull()
+            ?: store.get("wallet_id")?.toLongOrNull()
+            ?: 0L
+        val creditCardId = if (isCreditCard) store.get("credit_card_map_${captured.sourcePackage}")?.toLongOrNull()
+            ?: store.get("credit_card_id")?.toLongOrNull()
+            ?: 0L else 0L
+        if ((!isCreditCard && walletId <= 0) || (isCreditCard && creditCardId <= 0)) return
 
         Thread {
-            queue.add(captured, walletId)
+            queue.add(captured, walletId, creditCardId)
             flushQueue()
         }.start()
     }

@@ -5,10 +5,10 @@ import org.json.JSONObject
 
 class CaptureQueue(private val store: SecureStore) {
     @Synchronized
-    fun add(transaction: CapturedTransaction, walletId: Long) {
+    fun add(transaction: CapturedTransaction, walletId: Long, creditCardId: Long) {
         val queue = read()
         if (queue.any { it.optString("external_id") == transaction.externalId }) return
-        queue.put(toJson(transaction, walletId))
+        queue.put(toJson(transaction, walletId, creditCardId))
         while (queue.length() > MAX_ITEMS) queue.remove(0)
         store.put(KEY, queue.toString())
     }
@@ -31,12 +31,14 @@ class CaptureQueue(private val store: SecureStore) {
         JSONArray()
     }
 
-    private fun toJson(transaction: CapturedTransaction, walletId: Long) = JSONObject().apply {
+    private fun toJson(transaction: CapturedTransaction, walletId: Long, creditCardId: Long) = JSONObject().apply {
         put("external_id", transaction.externalId)
         put("title", transaction.title)
         put("amount", transaction.amount)
         put("type", transaction.type)
         put("wallet_id", walletId)
+        put("credit_card_id", creditCardId)
+        put("source_type", transaction.sourceType)
         put("source_package", transaction.sourcePackage)
         put("confidence", transaction.confidence)
     }

@@ -6,5 +6,6 @@ data class CapturedTransaction(
     val amount: Double,
     val type: String,
     val sourcePackage: String,
-    val confidence: Double
+    val confidence: Double,
+    val sourceType: String
 )

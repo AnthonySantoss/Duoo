@@ -40,12 +40,18 @@ object NotificationParser {
         if (!income && !expense) return null
 
         val type = if (income) "income" else "expense"
+        val invoicePayment = listOf("pagamento de fatura", "pagamento da fatura", "fatura paga").any(normalized::contains)
+        val creditCardPurchase = expense && !invoicePayment && listOf(
+            "cartão de crédito", "cartao de credito", "compra no crédito", "compra no credito",
+            "compra aprovada no cartão", "compra aprovada no cartao", "fatura"
+        ).any(normalized::contains)
+        val sourceType = if (creditCardPurchase) "credit_card" else "wallet"
         val idInput = "${notification.packageName}|${notification.postTime / 60_000}|$body"
         val externalId = sha256(idInput).take(64)
         val cleanTitle = title.ifBlank { text }.take(160)
         val confidence = if (income || expense) 0.85 else 0.55
 
-        return CapturedTransaction(externalId, cleanTitle, amount, type, notification.packageName, confidence)
+        return CapturedTransaction(externalId, cleanTitle, amount, type, notification.packageName, confidence, sourceType)
     }
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")

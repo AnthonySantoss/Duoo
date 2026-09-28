@@ -1,4 +1,4 @@
-const { sequelize, Transaction, Wallet, User, UserConfig } = require('../models');
+const { sequelize, Transaction, Wallet, CreditCard, CreditCardPurchase, User, UserConfig } = require('../models');
 const budgetAlertService = require('../services/budgetAlertService');
 const achievementService = require('../services/achievementService');
 const notificationService = require('../services/notificationService');
@@ -13,6 +13,8 @@ exports.create = async (req, res) => {
         category,
         date,
         wallet_id: walletId,
+        credit_card_id: creditCardId,
+        source_type: sourceType = 'wallet',
         source_package: sourcePackage,
         confidence = null
     } = req.body;
@@ -28,21 +30,36 @@ exports.create = async (req, res) => {
 
     const transaction = await sequelize.transaction();
     try {
-        const wallet = await Wallet.findOne({
-            where: { id: walletId, user_id: req.user.id },
-            transaction,
-            lock: transaction.LOCK.UPDATE
-        });
-
-        if (!wallet) {
-            await transaction.rollback();
-            return res.status(404).json({ error: 'Carteira não encontrada' });
-        }
+        const user = await User.findByPk(req.user.id, { transaction });
+        const allowedUsers = [req.user.id];
+        if (user?.partner_id) allowedUsers.push(user.partner_id);
 
         const categoryResult = category
             ? { category, confidence: 1 }
             : await categorizerService.categorizeAsync(title, null, req.user.id);
         const signedAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+
+        if (sourceType === 'credit_card') {
+            const card = await CreditCard.findOne({ where: { id: creditCardId, user_id: allowedUsers }, transaction });
+            if (!card) {
+                await transaction.rollback();
+                return res.status(404).json({ error: 'Cartão de crédito não encontrado' });
+            }
+            const duplicatePurchase = await CreditCardPurchase.findOne({ where: { credit_card_id: card.id, description: title, purchase_date: date || new Date(), total_amount: Math.abs(amount) }, transaction });
+            if (duplicatePurchase) {
+                await transaction.rollback();
+                return res.status(200).json({ created: false, duplicate: true, purchase: duplicatePurchase });
+            }
+            const purchase = await CreditCardPurchase.create({ description: title, category: categoryResult.category, total_amount: Math.abs(amount), installments: 1, installment_amount: Math.abs(amount), remaining_installments: 1, purchase_date: date || new Date(), credit_card_id: card.id, notes: 'Capturado da notificação do cartão' }, { transaction });
+            await transaction.commit();
+            return res.status(201).json({ created: true, duplicate: false, source_type: sourceType, purchase, category_confidence: categoryResult.confidence });
+        }
+
+        const wallet = await Wallet.findOne({ where: { id: walletId, user_id: req.user.id }, transaction, lock: transaction.LOCK.UPDATE });
+        if (!wallet) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Carteira não encontrada' });
+        }
         const created = await Transaction.create({
             title,
             amount: signedAmount,
