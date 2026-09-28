@@ -24,6 +24,7 @@ import PartnerSummaryCard from '../components/PartnerSummaryCard';
 import ProgressBar from '../components/ui/ProgressBar';
 import Toast from '../components/ui/Toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { formatShortDisplayDate } from '../utils/dateUtils';
 import { formatCurrencyInput, formatCurrencyValue, parseCurrencyInput } from '../utils/currency';
 
@@ -43,6 +44,7 @@ const metricToneClasses = {
 
 const OverviewRedesigned = () => {
     const { viewMode } = useOutletContext();
+    const { hasPartner } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
@@ -181,7 +183,7 @@ const OverviewRedesigned = () => {
             </div>}
             <Modal isOpen={showSavingsSuggestionModal && !!tip} onClose={handleDismissSavingsSuggestion} title="Uma ideia para o casal"><div className="space-y-5"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"><Target size={26} /></div><div><p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">{tip?.message}</p><p className="mt-2 text-sm text-slate-400">Uma pequena decisão hoje pode aproximar vocês dos seus planos.</p></div><div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button onClick={handleDismissSavingsSuggestion} className="rounded-xl px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">Talvez mais tarde</button><button onClick={handleOpenAllocation} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">Destinar agora</button></div></div></Modal>
 
-            <section className="overflow-hidden rounded-[28px] bg-emerald-600 p-6 text-white shadow-sm md:p-8"><div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Saldo conjunto do casal</p><h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{formatCurrency(balance)}</h1><p className="mt-3 text-sm text-emerald-100">{viewMode === 'joint' ? 'Visão compartilhada' : 'Visão individual'} · atualizado hoje</p></div><div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 text-sm text-emerald-50">{balanceVariation >= 0 ? <ArrowUp size={17} /> : <ArrowDown size={17} />}<span><strong>{Math.abs(Number(balanceVariation || 0)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</strong> no mês</span></div></div></section>
+            <section className="overflow-hidden rounded-[28px] bg-emerald-600 p-6 text-white shadow-sm md:p-8"><div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">{hasPartner ? 'Saldo conjunto do casal' : 'Seu saldo disponível'}</p><h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{formatCurrency(balance)}</h1><p className="mt-3 text-sm text-emerald-100">{hasPartner && viewMode === 'joint' ? 'Visão compartilhada' : 'Visão individual'} · atualizado hoje</p></div><div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 text-sm text-emerald-50">{balanceVariation >= 0 ? <ArrowUp size={17} /> : <ArrowDown size={17} />}<span><strong>{Math.abs(Number(balanceVariation || 0)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</strong> no mês</span></div></div></section>
 
             <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{metrics.map((metric) => { const MetricIcon = metric.icon; return <article key={metric.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:p-5"><div className={`mb-5 flex h-9 w-9 items-center justify-center rounded-xl ${metricToneClasses[metric.tone]}`}><MetricIcon size={18} /></div><p className="text-xs font-medium text-slate-500">{metric.label}</p><p className="mt-1 truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-white md:text-xl">{formatCurrency(metric.value)}</p>{metric.detail && <p className="mt-1 text-[11px] text-slate-400">{metric.detail}</p>}</article>; })}</section>
 

@@ -179,6 +179,53 @@
   transition: transform 220ms cubic-bezier(.22, 1, .36, 1), box-shadow 220ms ease, border-color 220ms ease;
 }
 
+/* Onboarding: expressive motion with a calm, premium rhythm. */
+.duoo-onboarding-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgba(10, 143, 99, 0.12) 1.2px, transparent 1.2px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(to bottom right, black, transparent 82%);
+}
+
+@keyframes duoo-onboarding-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -12px, 0) scale(1.08); }
+}
+
+@keyframes duoo-onboarding-orb {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(18px, -14px, 0); }
+}
+
+@keyframes duoo-onboarding-art-in {
+  from { opacity: 0; transform: scale(.94) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes duoo-onboarding-copy-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes duoo-onboarding-copy-in-reverse {
+  from { opacity: 0; transform: translateX(-22px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.duoo-onboarding-art { animation: duoo-onboarding-art-in 700ms cubic-bezier(.22, 1, .36, 1) both; }
+.duoo-onboarding-orb { animation: duoo-onboarding-orb 7s ease-in-out infinite; }
+.duoo-onboarding-orb-two { animation-delay: -2.5s; }
+.duoo-onboarding-float { animation: duoo-onboarding-float 4s ease-in-out infinite; }
+.duoo-onboarding-float-delay { animation-delay: -1.2s; }
+.duoo-onboarding-float-delay-2 { animation-delay: -2.4s; }
+.duoo-onboarding-icon { animation: duoo-onboarding-float 5s ease-in-out 500ms infinite; }
+.duoo-onboarding-copy-1 { animation: duoo-onboarding-copy-in 500ms cubic-bezier(.22, 1, .36, 1) both; }
+.duoo-onboarding-copy--1 { animation: duoo-onboarding-copy-in-reverse 500ms cubic-bezier(.22, 1, .36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .duoo-onboarding-art, .duoo-onboarding-orb, .duoo-onboarding-float, .duoo-onboarding-icon,
+  .duoo-onboarding-copy-1, .duoo-onboarding-copy--1 { animation: none; }
+}
+
 .duoo-card-motion:hover {
   transform: translateY(-3px);
   box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.42);
