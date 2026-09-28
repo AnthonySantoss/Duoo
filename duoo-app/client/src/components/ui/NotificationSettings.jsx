@@ -8,11 +8,13 @@ const NotificationSettings = () => {
     const {
         requestBrowserNotificationPermission,
         isBrowserNotificationEnabled,
-        setBrowserNotificationEnabled
+        setBrowserNotificationEnabled,
+        isPushSubscribed
     } = useNotifications();
 
     const [enabled, setEnabled] = useState(false);
     const [permission, setPermission] = useState('default');
+    const [pushSubscribed, setPushSubscribed] = useState(false);
     const [config, setConfig] = useState({
         daily_reminder_enabled: false,
         daily_reminder_hour: 20
@@ -20,6 +22,7 @@ const NotificationSettings = () => {
 
     useEffect(() => {
         setEnabled(isBrowserNotificationEnabled());
+        isPushSubscribed().then(setPushSubscribed);
         if ('Notification' in window) {
             setPermission(Notification.permission);
         }
@@ -48,6 +51,7 @@ const NotificationSettings = () => {
             if (granted) {
                 setEnabled(true);
                 setPermission('granted');
+                setPushSubscribed(await isPushSubscribed());
             } else {
                 setPermission(Notification.permission);
             }
@@ -67,12 +71,20 @@ const NotificationSettings = () => {
                 color: 'red'
             };
         }
-        if (permission === 'granted' && enabled) {
+        if (permission === 'granted' && enabled && pushSubscribed) {
             return {
                 icon: <Check className="text-emerald-500" size={20} />,
                 text: 'Ativado',
                 description: 'Você receberá notificações do navegador mesmo quando não estiver na aba.',
                 color: 'emerald'
+            };
+        }
+        if (permission === 'granted' && enabled) {
+            return {
+                icon: <Bell className="text-amber-500" size={20} />,
+                text: 'Ativado neste navegador',
+                description: 'O navegador está autorizado, mas o push em segundo plano ainda não foi confirmado neste dispositivo.',
+                color: 'amber'
             };
         }
         if (permission === 'granted' && !enabled) {

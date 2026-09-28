@@ -391,8 +391,8 @@ class NotificationService {
                 if (processedUsers.has(user.id)) continue;
                 processedUsers.add(user.id);
 
-                const title = "⏰ Tempo voa, mas seu dinheiro não";
-                const message = "Já registrou seus gastos de hoje? Manter tudo organizado leva só um minuto!";
+                const title = 'Lembrete do Duoo';
+                const message = 'Reserve um minuto para registrar os gastos de hoje.';
 
                 await this.createNotification(user.id, title, message, 'reminder', '/dashboard');
             }

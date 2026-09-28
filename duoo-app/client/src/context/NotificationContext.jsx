@@ -79,13 +79,16 @@ export const NotificationProvider = ({ children }) => {
         browserNotificationService.setEnabled(enabled);
     };
 
+    const isPushSubscribed = () => browserNotificationService.isPushSubscribed();
+
     return (
         <NotificationContext.Provider
             value={{
                 checkNotifications,
                 requestBrowserNotificationPermission,
                 isBrowserNotificationEnabled,
-                setBrowserNotificationEnabled
+                setBrowserNotificationEnabled,
+                isPushSubscribed
             }}
         >
             {children}

@@ -8,7 +8,7 @@ async function createNotificationsTable() {
                 user_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 message TEXT NOT NULL,
-                type TEXT CHECK(type IN ('achievement', 'budget_alert', 'goal_progress', 'transaction', 'invoice', 'info')) DEFAULT 'info',
+            type TEXT CHECK(type IN ('achievement', 'budget_alert', 'goal_progress', 'transaction', 'invoice', 'info', 'reminder')) DEFAULT 'info',
                 link TEXT,
                 read INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -38,7 +38,7 @@ const NotificationPermissionBanner = () => {
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('🎉 Notificações Ativadas!', {
                     body: 'Você receberá alertas importantes sobre suas finanças.',
-                    icon: '/logo.png',
+                    icon: '/icon-192.png',
                     tag: 'welcome-notification'
                 });
             }

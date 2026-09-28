@@ -1,5 +1,8 @@
 import api from './api';
 
+const DUOO_NOTIFICATION_ICON = '/icon-192.png';
+const DUOO_NOTIFICATION_BADGE = '/badge.png';
+
 /**
  * Serviço para gerenciar notificações do navegador (Web Notifications API)
  * Permite enviar notificações mesmo quando o usuário não está na aba
@@ -33,6 +36,7 @@ class BrowserNotificationService {
         }
 
         if (this.permission === 'granted') {
+            await this.subscribeUserToPush();
             return true;
         }
 
@@ -46,7 +50,7 @@ class BrowserNotificationService {
                 localStorage.setItem('notificationsEnabled', 'true');
 
                 // Subscrever para Push Notifications (WebPush)
-                this.subscribeUserToPush();
+                await this.subscribeUserToPush();
 
                 return true;
             } else {
@@ -88,8 +92,8 @@ class BrowserNotificationService {
         try {
             const notificationOptions = {
                 body: options.body || '',
-                icon: options.icon || '/logo.png', // Logo da aplicação
-                badge: options.badge || '/badge.png',
+                icon: options.icon || DUOO_NOTIFICATION_ICON,
+                badge: options.badge || DUOO_NOTIFICATION_BADGE,
                 tag: options.tag || 'duoo-notification',
                 requireInteraction: options.requireInteraction || false,
                 vibrate: [200, 100, 200], // Padrão de vibração para mobile
@@ -130,20 +134,7 @@ class BrowserNotificationService {
      * @param {object} notification - Objeto de notificação do backend
      */
     async sendFromBackendNotification(notification) {
-        const iconMap = {
-            'achievement': '🏆',
-            'budget_alert': '💰',
-            'goal_progress': '🎯',
-            'transaction': '💸',
-            'invoice': '💳',
-            'info': 'ℹ️',
-            'note': '📝'
-        };
-
-        const icon = iconMap[notification.type] || 'ℹ️';
-        const title = `${icon} ${notification.title}`;
-
-        return this.sendNotification(title, {
+        return this.sendNotification(notification.title, {
             body: notification.message,
             tag: `notification-${notification.id}`,
             link: notification.link || '/dashboard',
@@ -157,6 +148,17 @@ class BrowserNotificationService {
     isEnabled() {
         const enabled = localStorage.getItem('notificationsEnabled');
         return enabled === 'true' && this.permission === 'granted';
+    }
+
+    async isPushSubscribed() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            return Boolean(await registration.pushManager.getSubscription());
+        } catch (error) {
+            console.error('Erro ao verificar inscrição de push:', error);
+            return false;
+        }
     }
 
     /**
@@ -177,7 +179,7 @@ class BrowserNotificationService {
             // 1. Verificar se o navegador suporta Service Workers e Push
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                 console.warn('Push notifications não são suportadas neste navegador');
-                return;
+                return false;
             }
 
             // 2. Aguardar o Service Worker estar pronto
@@ -187,27 +189,40 @@ class BrowserNotificationService {
             const vapidPublicKey = document.querySelector('meta[name="vapid-public-key"]')?.content;
             if (!vapidPublicKey) {
                 console.error('VAPID Public Key não encontrada no meta tag');
-                return;
+                return false;
             }
 
             const convertedVapidKey = this.urlBase64ToUint8Array(vapidPublicKey);
 
-            // 4. Subscrever
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedVapidKey
-            });
+            // 4. Renovar inscrições criadas com outra chave VAPID
+            let subscription = await registration.pushManager.getSubscription();
+            const previousVapidKey = localStorage.getItem('duoo:vapid-public-key');
+            if (subscription && previousVapidKey !== vapidPublicKey) {
+                await subscription.unsubscribe();
+                subscription = null;
+            }
+
+            // 5. Subscrever
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedVapidKey
+                });
+            }
 
             console.log('✅ Usuário subscrito para WebPush');
+            localStorage.setItem('duoo:vapid-public-key', vapidPublicKey);
 
-            // 5. Enviar para o backend
+            // 6. Enviar para o backend
             await api.post('/notifications/push/subscribe', {
                 subscription,
                 deviceType: this.getDeviceType()
             });
+            return true;
 
         } catch (error) {
             console.error('Erro ao subscrever para WebPush:', error);
+            return false;
         }
     }
 

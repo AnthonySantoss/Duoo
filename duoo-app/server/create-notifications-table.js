@@ -26,7 +26,7 @@ module.exports = {
                 allowNull: false
             },
             type: {
-                type: Sequelize.ENUM('achievement', 'budget_alert', 'goal_progress', 'transaction', 'invoice', 'info'),
+                type: Sequelize.ENUM('achievement', 'budget_alert', 'goal_progress', 'transaction', 'invoice', 'info', 'reminder'),
                 defaultValue: 'info'
             },
             link: {
