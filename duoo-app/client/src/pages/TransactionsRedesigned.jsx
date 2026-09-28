@@ -5,6 +5,7 @@ import Card from '../components/ui/Card';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import Modal from '../components/ui/Modal';
 import Toast from '../components/ui/Toast';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import TransactionModal from '../components/ui/TransactionModalRedesigned';
 import api from '../services/api';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -92,7 +93,7 @@ const TransactionsRedesigned = () => {
         }
     };
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
+if (loading) return <PageSkeleton />;
 
     return <div className="space-y-6 animate-in fade-in duration-300">
         <section className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">Visão do casal</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Transações</h1><p className="mt-2 text-sm text-slate-500">Acompanhe quem gastou, em qual cartão e com que categoria.</p></div><button onClick={() => setModalState({ open: true, transaction: null })} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"><Plus size={18} /> Nova transação</button></section>

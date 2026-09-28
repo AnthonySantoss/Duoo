@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import Modal from '../components/ui/Modal';
 import ProgressBar from '../components/ui/ProgressBar';
 import Toast from '../components/ui/Toast';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import api from '../services/api';
 import { formatDisplayDate } from '../utils/dateUtils';
 
@@ -35,7 +36,7 @@ const GoalsRedesigned = () => {
     const ownerLabel = (goal) => goal.is_joint && partner ? `${user?.name || 'Você'} & ${partner.name}` : goal.User?.id === user?.id ? user?.name || 'Você' : goal.User?.name || 'Casal';
     const totals = useMemo(() => goals.reduce((result, goal) => { result.current += Number(goal.current_amount || 0); result.target += Number(goal.target_amount || 0); return result; }, { current: 0, target: 0 }), [goals]);
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
+    if (loading) return <PageSkeleton />;
     return <div className="space-y-6 animate-in fade-in duration-300 md:space-y-8">
         <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">Planos compartilhados</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Metas do casal</h1><p className="mt-2 text-sm text-slate-500">Transformem objetivos em próximos passos visíveis para os dois.</p></div><button onClick={() => openForm()} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><Plus size={18} /> Nova meta</button></section>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

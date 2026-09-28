@@ -9,6 +9,7 @@ import ProgressBar from '../components/ui/ProgressBar';
 import Toast from '../components/ui/Toast';
 import api from '../services/api';
 import { formatDisplayDate } from '../utils/dateUtils';
+import PageSkeleton from '../components/ui/PageSkeleton';
 
 const inputClass = 'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-800';
 const formatCurrency = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -62,7 +63,7 @@ const BankRedesigned = () => {
     const totals = useMemo(() => ({ goals: goals.reduce((sum, goal) => sum + Number(goal.current_amount || 0), 0), wallets: wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0), openLoans: loans.filter((loan) => loan.status === 'active').length }), [goals, loans, wallets]);
     const amount = Number(loanForm.amount || 0); const totalToPay = amount * Math.pow(1 + Number(loanForm.interestRate || 0) / 100, Number(loanForm.installments || 1)); const installment = totalToPay / Number(loanForm.installments || 1);
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
+    if (loading) return <PageSkeleton />;
     return <div className="space-y-6 animate-in fade-in duration-300 md:space-y-8">
         <section><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">Visão financeira</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Banco</h1><p className="mt-2 text-sm text-slate-500">Use uma meta como reserva e acompanhe o empréstimo dentro do casal.</p></section>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

@@ -17,6 +17,7 @@ import {
     X,
     Zap,
 } from 'lucide-react';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import PartnerSummaryCard from '../components/PartnerSummaryCard';
@@ -137,7 +138,7 @@ const OverviewRedesigned = () => {
         }
     };
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
+    if (loading) return <PageSkeleton />;
     if (!data) return <div className="rounded-2xl bg-white p-6 text-sm text-slate-500">Erro ao carregar dados.</div>;
 
     const { balance, balanceVariation, spent, saved, invested, creditCard, nextInvoiceDay, expensesByCategory, transactions, daysSinceLastTransaction } = data;

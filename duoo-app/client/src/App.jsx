@@ -23,6 +23,7 @@ import Recurring from './pages/RecurringRedesigned';
 import Challenges from './pages/ChallengesRedesigned';
 import MobileMenu from './pages/MobileMenuRedesigned';
 import PWAInstallPrompt from './components/ui/PWAInstallPrompt';
+import PageSkeleton from './components/ui/PageSkeleton';
 
 import { useAuth } from './context/AuthContext';
 
@@ -31,8 +32,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div className="min-h-screen bg-slate-50 p-6 dark:bg-slate-950 sm:p-10">
+        <div className="mx-auto max-w-7xl pt-4">
+          <PageSkeleton />
+        </div>
       </div>
     );
   }

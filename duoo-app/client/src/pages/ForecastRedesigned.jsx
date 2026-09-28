@@ -4,6 +4,7 @@ import Chart from 'react-apexcharts';
 import { Activity, AlertCircle, ArrowDownRight, ArrowUpRight, Calendar, ShoppingBag, Sparkles, Users, Wallet } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
+import PageSkeleton from '../components/ui/PageSkeleton';
 
 const money = (value) => `R$ ${(Number(value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const palette = ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
@@ -52,7 +53,7 @@ const ForecastRedesigned = () => {
     };
     const contributionOptions = { chart: { toolbar: { show: false } }, colors: ['#2563eb', '#8b5cf6'], labels: contribution.map((item) => item.name || item.user || 'Pessoa'), legend: { show: false }, dataLabels: { enabled: false }, stroke: { width: 3, colors: ['#fff'] }, plotOptions: { pie: { donut: { size: '70%' } } }, tooltip: { y: { formatter: (value) => money(value) } } };
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
+    if (loading) return <PageSkeleton />;
 
     return (
         <div className="space-y-6 pb-8">
