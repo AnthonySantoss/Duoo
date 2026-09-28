@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link as LinkIcon, CheckCircle2, Settings as SettingsIcon, Unlink, QrCode, Copy } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import Card from '../components/ui/Card';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
@@ -145,22 +146,18 @@ const LinkAccounts = () => {
 
                 <div className="flex flex-col gap-6">
                     {/* Área do Meu Código */}
-                    <div className="bg-emerald-50 dark:bg-emerald-900/10 rounded-xl p-5 border border-emerald-100 dark:border-emerald-900/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider mb-1">Seu Código de Acesso</p>
-                            <p className="text-sm text-slate-600 dark:text-slate-400">Partilhe este código com o seu parceiro.</p>
+                    <div className="grid gap-6 overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-5 dark:border-emerald-900/30 dark:from-emerald-950/30 dark:via-slate-900 dark:to-teal-950/20 sm:grid-cols-[auto_1fr] sm:items-center sm:p-6">
+                        <div className="duoo-qr-enter relative mx-auto overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-emerald-100 dark:ring-emerald-900/30">
+                            {myCode ? <><QRCodeSVG value={`duoo://partner/${myCode}`} size={156} bgColor="#ffffff" fgColor="#0f172a" level="M" includeMargin /><span className="duoo-qr-scan pointer-events-none absolute left-3 right-3 top-1/2 h-px bg-emerald-500 shadow-[0_0_12px_2px_rgba(16,185,129,0.55)]" /></> : <div className="flex h-[156px] w-[156px] animate-pulse items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-400">Gerando QR</div>}
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 px-4 py-2 rounded-lg font-mono text-xl font-bold text-emerald-600 tracking-widest">
-                                {myCode || '------'}
+                        <div className="min-w-0 text-center sm:text-left">
+                            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"><QrCode size={14} /> Compartilhe por QR Code</div>
+                            <p className="text-lg font-semibold text-slate-900 dark:text-white">Convide seu parceiro para o Duoo</p>
+                            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">A outra pessoa pode escanear este código ou copiar o código de acesso abaixo.</p>
+                            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+                                <div className="rounded-xl border border-emerald-200 bg-white px-4 py-2 font-mono text-lg font-bold tracking-[0.2em] text-emerald-700 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-300">{myCode || '------'}</div>
+                                <button onClick={handleCopyCode} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-emerald-900/40" title={copied ? 'Copiado!' : 'Copiar código'}>{copied ? <CheckCircle2 size={17} /> : <Copy size={17} />}{copied ? 'Copiado' : 'Copiar código'}</button>
                             </div>
-                            <button
-                                onClick={handleCopyCode}
-                                className="p-2.5 bg-white dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-900 text-emerald-600 rounded-lg transition-colors"
-                                title={copied ? 'Copiado!' : 'Copiar código'}
-                            >
-                                {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
-                            </button>
                         </div>
                     </div>
 

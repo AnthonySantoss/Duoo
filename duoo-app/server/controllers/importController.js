@@ -231,40 +231,61 @@ exports.importFile = async (req, res) => {
             return res.status(400).json({ error: 'Nenhuma transação encontrada no arquivo' });
         }
 
-        // Create transactions
         const createdTransactions = [];
         let currentBalance = parseFloat(wallet.balance);
+        let duplicatedTransactions = 0;
 
         for (const trans of parsedTransactions) {
             const category = detectCategory(trans.description);
             const amount = trans.amount;
+            const existingTransaction = await Transaction.findOne({
+                where: {
+                    title: trans.description,
+                    amount,
+                    date: trans.date,
+                    wallet_id,
+                    user_id: req.user.id
+                }
+            });
+
+            if (existingTransaction) {
+                duplicatedTransactions += 1;
+                continue;
+            }
 
             const transaction = await Transaction.create({
                 title: trans.description,
-                amount: amount,
-                category: category,
+                amount,
+                category,
                 date: trans.date,
                 type: amount > 0 ? 'income' : 'expense',
-                wallet_id: wallet_id,
-                user_id: req.user.id
+                wallet_id,
+                user_id: req.user.id,
+                notes: 'Importado de extrato'
             });
 
             currentBalance += amount;
             createdTransactions.push(transaction);
         }
 
-        // Update wallet balance
-        wallet.balance = currentBalance;
-        await wallet.save();
+        // Update wallet balance only with new transactions
+        if (createdTransactions.length > 0) {
+            wallet.balance = currentBalance;
+            await wallet.save();
+        }
 
         res.json({
-            message: `${createdTransactions.length} transações importadas com sucesso`,
+            message: duplicatedTransactions > 0 ? createdTransactions.length + ' transações importadas; ' + duplicatedTransactions + ' duplicadas ignoradas' : createdTransactions.length + ' transações importadas',
             count: createdTransactions.length,
+            duplicated: duplicatedTransactions,
             transactions: createdTransactions
         });
-
     } catch (error) {
         console.error('Error in importFile:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Não foi possível concluir a importação. Verifique o arquivo e tente novamente.' });
     }
 };
+
+exports.parseCSV = parseCSV;
+exports.parseOFX = parseOFX;
+exports.detectCategory = detectCategory;

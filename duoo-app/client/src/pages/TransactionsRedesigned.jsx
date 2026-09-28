@@ -34,6 +34,8 @@ const TransactionsRedesigned = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [modalState, setModalState] = useState({ open: false, transaction: null });
     const [toast, setToast] = useState(null);
     const [categoryState, setCategoryState] = useState({ open: false, transaction: null });
@@ -43,7 +45,7 @@ const TransactionsRedesigned = () => {
     const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get('/transactions', { params: { viewMode, page, limit: 10, search: searchTerm, ...filters } });
+            const response = await api.get('/transactions', { params: { viewMode, page, limit: 10, search: debouncedSearch, ...filters } });
             setTransactions(response.data.transactions || response.data);
             setTotalPages(response.data.totalPages || 1);
         } catch (error) {
@@ -51,8 +53,14 @@ const TransactionsRedesigned = () => {
             setToast({ message: 'Erro ao carregar transações.', type: 'error' });
         } finally {
             setLoading(false);
+            setHasLoaded(true);
         }
-    }, [filters, page, searchTerm, viewMode]);
+    }, [debouncedSearch, filters, page, viewMode]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     useEffect(() => {
         const timer = setTimeout(fetchTransactions, 300);
@@ -93,9 +101,9 @@ const TransactionsRedesigned = () => {
         }
     };
 
-if (loading) return <PageSkeleton />;
+    if (loading && !hasLoaded) return <PageSkeleton />;
 
-    return <div className="space-y-6 animate-in fade-in duration-300">
+    return <div className="duoo-page-enter space-y-6">
         <section className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">Visão do casal</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Transações</h1><p className="mt-2 text-sm text-slate-500">Acompanhe quem gastou, em qual cartão e com que categoria.</p></div><button onClick={() => setModalState({ open: true, transaction: null })} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"><Plus size={18} /> Nova transação</button></section>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3"><div className="rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Transações</p><p className="mt-1 text-2xl font-semibold">{transactions.length}</p></div><div className="rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">Receitas</p><p className="mt-1 text-2xl font-semibold text-emerald-600">{formatCurrency(totals.income)}</p></div><div className="col-span-2 rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:col-span-1"><p className="text-xs text-slate-500">Despesas</p><p className="mt-1 text-2xl font-semibold">{formatCurrency(totals.expense)}</p></div></section>

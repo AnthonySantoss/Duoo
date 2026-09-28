@@ -117,3 +117,69 @@
 .animate-slide-up {
   animation: slide-up 0.4s ease-out;
 }
+
+/* Motion language: calm, short and purposeful for a finance product. */
+@keyframes duoo-page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes duoo-modal-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes duoo-qr-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes duoo-scan {
+  0%, 100% { transform: translateY(-66px); opacity: 0; }
+  15%, 80% { opacity: 0.75; }
+  90% { transform: translateY(66px); opacity: 0; }
+}
+
+@keyframes duoo-progress-in {
+  from { transform: scaleX(0); transform-origin: left; }
+  to { transform: scaleX(1); transform-origin: left; }
+}
+
+.duoo-page-enter {
+  animation: duoo-page-enter 360ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.duoo-modal-enter {
+  animation: duoo-modal-enter 260ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.duoo-qr-enter {
+  animation: duoo-qr-enter 480ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.duoo-qr-scan {
+  animation: duoo-scan 2.8s ease-in-out 650ms infinite;
+}
+
+.duoo-progress-in {
+  animation: duoo-progress-in 700ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.duoo-stagger-grid > * {
+  animation: duoo-page-enter 420ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.duoo-stagger-grid > *:nth-child(2) { animation-delay: 55ms; }
+.duoo-stagger-grid > *:nth-child(3) { animation-delay: 110ms; }
+.duoo-stagger-grid > *:nth-child(4) { animation-delay: 165ms; }
+.duoo-stagger-grid > *:nth-child(5) { animation-delay: 220ms; }
+.duoo-stagger-grid > *:nth-child(6) { animation-delay: 275ms; }
+
+.duoo-card-motion {
+  transition: transform 220ms cubic-bezier(.22, 1, .36, 1), box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.duoo-card-motion:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.42);
+}

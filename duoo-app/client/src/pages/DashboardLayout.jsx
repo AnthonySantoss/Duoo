@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Zap, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, Target, Calculator, LineChart, FileText, FileUp, Landmark, CreditCard, Settings, Users, User, LogOut, TrendingUp, Building2, Trophy, Zap, Bell, RefreshCw, Menu as MenuIcon, PlusCircle, Home, ArrowRightLeft, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAchievements } from '../context/AchievementContext';
 import AchievementModal from '../components/ui/AchievementModal';
@@ -30,6 +30,7 @@ const DashboardLayout = () => {
     const navItems = [
         { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
         { path: '/dashboard/transactions', icon: <ArrowRightLeft size={20} />, label: 'Transações' },
+        { path: '/dashboard/statement', icon: <FileUp size={20} />, label: 'Importação' },
         { path: '/dashboard/bank', icon: <Building2 size={20} />, label: 'Banco' },
         { path: '/dashboard/goals', icon: <Target size={20} />, label: 'Objetivos' },
         { path: '/dashboard/simulation', icon: <Calculator size={20} />, label: 'Simulador' },

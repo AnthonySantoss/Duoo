@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 const Modal = ({ isOpen, onClose, title, children }) => {
@@ -14,12 +15,12 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity">
+    return createPortal((
+        <div className="fixed inset-0 z-50 isolate flex min-h-screen w-screen items-center justify-center p-4 transition-opacity">
             {/* Overlay click to close */}
-            <div className="absolute inset-0" onClick={onClose}></div>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onClose}></div>
 
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] animation-scale-up border border-slate-100 dark:border-slate-800">
+            <div className="duoo-modal-enter relative flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
                     <h3 className="font-bold text-xl text-slate-900 dark:text-white">{title}</h3>
                     <button
@@ -35,7 +36,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 };
 
 export default Modal;

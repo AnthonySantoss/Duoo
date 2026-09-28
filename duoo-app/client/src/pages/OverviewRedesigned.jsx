@@ -25,6 +25,7 @@ import ProgressBar from '../components/ui/ProgressBar';
 import Toast from '../components/ui/Toast';
 import api from '../services/api';
 import { formatShortDisplayDate } from '../utils/dateUtils';
+import { formatCurrencyInput, formatCurrencyValue, parseCurrencyInput } from '../utils/currency';
 
 const formatCurrency = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
@@ -47,6 +48,7 @@ const OverviewRedesigned = () => {
     const [data, setData] = useState(null);
     const [goals, setGoals] = useState([]);
     const [showTipModal, setShowTipModal] = useState(false);
+    const [showSavingsSuggestionModal, setShowSavingsSuggestionModal] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState(null);
     const [allocationAmount, setAllocationAmount] = useState('');
     const [wallets, setWallets] = useState([]);
@@ -121,13 +123,35 @@ const OverviewRedesigned = () => {
         } : null;
     }, [data, goals]);
 
+    useEffect(() => {
+        if (!tip) return;
+        const dismissalKey = `duoo:savings-tip-dismissed:${tip.goal.id}:${new Date().toISOString().slice(0, 7)}`;
+        if (sessionStorage.getItem(dismissalKey) !== 'true') setShowSavingsSuggestionModal(true);
+    }, [tip]);
+
+    const handleDismissSavingsSuggestion = () => {
+        if (tip) {
+            const dismissalKey = `duoo:savings-tip-dismissed:${tip.goal.id}:${new Date().toISOString().slice(0, 7)}`;
+            sessionStorage.setItem(dismissalKey, 'true');
+        }
+        setShowSavingsSuggestionModal(false);
+    };
+
+    const handleOpenAllocation = () => {
+        if (!tip) return;
+        setSelectedGoal(tip.goal.id);
+        setAllocationAmount(formatCurrencyValue(tip.amount));
+        setShowSavingsSuggestionModal(false);
+        setShowTipModal(true);
+    };
+
     const handleAllocateToGoal = async () => {
-        if (!selectedGoal || !allocationAmount || Number(allocationAmount) <= 0) {
+        if (!selectedGoal || !allocationAmount || parseCurrencyInput(allocationAmount) <= 0) {
             setToast({ message: 'Selecione uma meta e informe um valor válido', type: 'error' });
             return;
         }
         try {
-            await api.post(`/goals/${selectedGoal}/progress`, { amount: Number(allocationAmount), wallet_id: selectedWallet });
+            await api.post(`/goals/${selectedGoal}/progress`, { amount: parseCurrencyInput(allocationAmount), wallet_id: selectedWallet });
             setToast({ message: 'Valor destinado com sucesso!', type: 'success' });
             setShowTipModal(false);
             setAllocationAmount('');
@@ -150,11 +174,12 @@ const OverviewRedesigned = () => {
     ];
 
     return (
-        <div className="space-y-6 pb-4 animate-in fade-in slide-in-from-bottom-4 duration-500 md:space-y-8">
+        <div className="duoo-page-enter space-y-6 pb-4 md:space-y-8">
             {showAlert && daysSinceLastTransaction > 1 && <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
                 <AlertTriangle className="mt-0.5 shrink-0 text-amber-600" size={19} />
                 <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><h4 className="text-sm font-semibold">A captura está há {daysSinceLastTransaction} dias sem novidades</h4><button onClick={() => setShowAlert(false)} className="text-amber-600" aria-label="Fechar aviso"><X size={16} /></button></div><p className="mt-1 text-xs leading-relaxed text-amber-800/80 dark:text-amber-200/80">Confirme se as notificações do banco continuam permitidas no celular.</p><button onClick={() => document.querySelector('.nav-add-btn')?.click()} className="mt-3 text-xs font-semibold text-amber-700 underline underline-offset-4 dark:text-amber-200">Adicionar transação manualmente</button></div>
             </div>}
+            <Modal isOpen={showSavingsSuggestionModal && !!tip} onClose={handleDismissSavingsSuggestion} title="Uma ideia para o casal"><div className="space-y-5"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"><Target size={26} /></div><div><p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">{tip?.message}</p><p className="mt-2 text-sm text-slate-400">Uma pequena decisão hoje pode aproximar vocês dos seus planos.</p></div><div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button onClick={handleDismissSavingsSuggestion} className="rounded-xl px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">Talvez mais tarde</button><button onClick={handleOpenAllocation} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">Destinar agora</button></div></div></Modal>
 
             <section className="overflow-hidden rounded-[28px] bg-emerald-600 p-6 text-white shadow-sm md:p-8"><div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Saldo conjunto do casal</p><h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{formatCurrency(balance)}</h1><p className="mt-3 text-sm text-emerald-100">{viewMode === 'joint' ? 'Visão compartilhada' : 'Visão individual'} · atualizado hoje</p></div><div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 text-sm text-emerald-50">{balanceVariation >= 0 ? <ArrowUp size={17} /> : <ArrowDown size={17} />}<span><strong>{Math.abs(Number(balanceVariation || 0)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</strong> no mês</span></div></div></section>
 
@@ -164,9 +189,8 @@ const OverviewRedesigned = () => {
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]"><Card className="rounded-3xl border-slate-200/80 shadow-none dark:border-slate-800"><div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Atividade do casal</h2><p className="mt-1 text-sm text-slate-500">Últimos lançamentos identificados</p></div><Link to="/dashboard/transactions" className="text-sm font-medium text-emerald-600">Ver todas</Link></div><div className="divide-y divide-slate-100 dark:divide-slate-800">{transactions?.length ? transactions.slice(0, 5).map(item => { const amount = Number(item.amount || 0); const owner = item.User?.name || item.user?.name || (amount > 0 ? 'Entrada' : 'Casal'); return <div key={item.id} className="flex items-center justify-between gap-4 py-4 first:pt-2"><div className="flex min-w-0 items-center gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{amount > 0 ? <ArrowUpCircle size={18} /> : getCategoryIcon(item.category)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.title}</p><p className="truncate text-xs text-slate-400">{owner} · {item.category} · {formatShortDisplayDate(item.date)}</p></div></div><span className={`shrink-0 text-sm font-semibold ${amount > 0 ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>{amount > 0 ? '+' : '−'} {formatCurrency(Math.abs(amount))}</span></div>; }) : <div className="rounded-2xl bg-slate-50 py-10 text-center text-sm text-slate-500 dark:bg-slate-800/50">Nenhuma transação recente.</div>}</div></Card><div className="space-y-6"><Card className="rounded-3xl border-slate-200/80 shadow-none dark:border-slate-800"><div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Metas do casal</h2><p className="mt-1 text-sm text-slate-500">Planos compartilhados</p></div><button onClick={() => navigate('/dashboard/goals')} className="text-emerald-600" aria-label="Adicionar meta"><PlusCircle size={20} /></button></div>{goals.length ? <div className="space-y-5">{goals.slice(0, 3).map(goal => { const progress = clampPercentage((Number(goal.current_amount) / Number(goal.target_amount || 1)) * 100); return <div key={goal.id}><div className="mb-2 flex justify-between gap-3 text-sm"><span className="truncate font-medium">{goal.title}</span><span className="text-slate-500">{progress.toFixed(0)}%</span></div><ProgressBar progress={progress} colorClass="bg-emerald-500" height="h-2" /><div className="mt-2 flex justify-between text-xs text-slate-500"><span>{formatCurrency(goal.current_amount)}</span><span>{formatCurrency(goal.target_amount)}</span></div></div>; })}</div> : <div className="rounded-2xl bg-slate-50 py-8 text-center text-sm text-slate-500 dark:bg-slate-800/50">Nenhuma meta cadastrada.</div>}</Card>{healthScore && <Card className="rounded-3xl border-slate-200/80 shadow-none dark:border-slate-800"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Saúde financeira</p><p className="mt-1 text-2xl font-semibold">{healthScore.score}<span className="ml-1 text-sm font-normal text-slate-400">/100</span></p><p className="mt-1 text-sm text-slate-500">{healthScore.level}</p></div><div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-emerald-100 text-sm font-semibold text-emerald-600">{healthScore.score}</div></div></Card>}<PartnerSummaryCard /></div></section>
 
-            {tip && <Card className="rounded-3xl border-0 bg-emerald-600 text-white shadow-none"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-semibold">Uma ideia para o casal</p><p className="mt-1 max-w-2xl text-sm leading-relaxed text-emerald-50">{tip.message}</p></div><button onClick={() => { setSelectedGoal(tip.goal.id); setAllocationAmount(tip.amount.toString()); setShowTipModal(true); }} className="shrink-0 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold hover:bg-white/20">Destinar agora</button></div></Card>}
 
-            <Modal isOpen={showTipModal} onClose={() => setShowTipModal(false)} title="Destinar economia para meta"><div className="space-y-4"><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Selecione a meta</label><select value={selectedGoal || ''} onChange={event => setSelectedGoal(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800"><option value="">Escolha uma meta</option>{goals.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></div><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Valor a destinar (R$)</label><input type="number" step="0.01" value={allocationAmount} onChange={event => setAllocationAmount(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800" placeholder="0,00" /></div><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Carteira de origem</label><select value={selectedWallet || ''} onChange={event => setSelectedWallet(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800"><option value="">Não debitar de nenhuma carteira</option>{wallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select></div><button onClick={handleAllocateToGoal} className="w-full rounded-xl bg-emerald-500 py-3 font-bold text-white hover:bg-emerald-600">Confirmar destinação</button></div></Modal>
+            <Modal isOpen={showTipModal} onClose={() => setShowTipModal(false)} title="Destinar economia para meta"><div className="space-y-4"><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Selecione a meta</label><select value={selectedGoal || ''} onChange={event => setSelectedGoal(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800"><option value="">Escolha uma meta</option>{goals.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></div><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Valor a destinar (R$)</label><input type="text" inputMode="decimal" value={allocationAmount} onChange={event => setAllocationAmount(formatCurrencyInput(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800" placeholder="0,00" /></div><div><label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Carteira de origem</label><select value={selectedWallet || ''} onChange={event => setSelectedWallet(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800"><option value="">Não debitar de nenhuma carteira</option>{wallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select></div><button onClick={handleAllocateToGoal} className="w-full rounded-xl bg-emerald-500 py-3 font-bold text-white hover:bg-emerald-600">Confirmar destinação</button></div></Modal>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
