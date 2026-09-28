@@ -28,6 +28,11 @@ const path = require('path');
 const app = express();
 
 app.disable('x-powered-by');
+// Render fica na frente da aplicação como um proxy reverso e encaminha
+// o IP original pelo cabeçalho X-Forwarded-For. Confiar em apenas um salto
+// permite que o rate limiter identifique o cliente sem aceitar proxies
+// arbitrários como origem do IP.
+app.set('trust proxy', 1);
 app.use(helmet());
 
 app.get('/health', (req, res) => {
