@@ -49,8 +49,8 @@ class NotificationService {
      * Notifica sobre conquista desbloqueada
      */
     async notifyAchievementUnlocked(userId, achievement) {
-        const title = `🏆 Nova Conquista: ${achievement.title}`;
-        const message = `Parabéns! Você desbloqueou a conquista "${achievement.title}". ${achievement.description}`;
+        const title = `Nova conquista: ${achievement.title}`;
+        const message = `Você desbloqueou a conquista "${achievement.title}". ${achievement.description}`;
         return this.createNotification(userId, title, message, 'achievement', '/dashboard/achievements');
     }
 
@@ -58,8 +58,8 @@ class NotificationService {
      * Notifica sobre meta atingida
      */
     async notifyGoalReached(userId, goal) {
-        const title = `🎯 Meta Atingida: ${goal.title}`;
-        const message = `Parabéns! Você alcançou sua meta "${goal.title}" de R$ ${parseFloat(goal.target_amount).toFixed(2)}!`;
+        const title = `Meta atingida: ${goal.title}`;
+        const message = `Você alcançou sua meta "${goal.title}" de R$ ${parseFloat(goal.target_amount).toFixed(2)}.`;
         return this.createNotification(userId, title, message, 'goal_progress', '/dashboard/goals');
     }
 
@@ -67,8 +67,8 @@ class NotificationService {
      * Notifica sobre progresso em meta (50%, 75%, 90%)
      */
     async notifyGoalProgress(userId, goal, percentage) {
-        const title = `📈 Progresso: ${goal.title}`;
-        const message = `Você atingiu ${percentage}% da sua meta "${goal.title}". Faltam R$ ${(goal.target_amount - goal.current_amount).toFixed(2)}!`;
+        const title = `Progresso da meta: ${goal.title}`;
+        const message = `Você atingiu ${percentage}% da sua meta "${goal.title}". Faltam R$ ${(goal.target_amount - goal.current_amount).toFixed(2)}.`;
         return this.createNotification(userId, title, message, 'goal_progress', '/dashboard/goals');
     }
 
@@ -77,7 +77,7 @@ class NotificationService {
      */
     async notifyInvoiceNearDue(userId, invoice, card, daysUntilDue) {
         const dueDate = new Date(invoice.due_date).toLocaleDateString('pt-BR');
-        const title = `💳 Fatura ${card.name} vence em ${daysUntilDue} dia${daysUntilDue > 1 ? 's' : ''}`;
+        const title = `Fatura ${card.name} vence em ${daysUntilDue} dia${daysUntilDue > 1 ? 's' : ''}`;
         const message = `A fatura do cartão ${card.name} vence em ${dueDate}. Valor: R$ ${parseFloat(invoice.total_amount || 0).toFixed(2)}`;
         return this.createNotification(userId, title, message, 'invoice', '/dashboard/investments');
     }
@@ -87,8 +87,8 @@ class NotificationService {
      */
     async notifyInvoiceOverdue(userId, invoice, card) {
         const dueDate = new Date(invoice.due_date).toLocaleDateString('pt-BR');
-        const title = `⚠️ Fatura ${card.name} VENCIDA`;
-        const message = `A fatura do cartão ${card.name} venceu em ${dueDate}. Valor: R$ ${parseFloat(invoice.total_amount || 0).toFixed(2)}. Regularize para evitar juros!`;
+        const title = `Fatura ${card.name} vencida`;
+        const message = `A fatura do cartão ${card.name} venceu em ${dueDate}. Valor: R$ ${parseFloat(invoice.total_amount || 0).toFixed(2)}. Regularize para evitar juros.`;
         return this.createNotification(userId, title, message, 'invoice', '/dashboard/investments');
     }
 
@@ -97,9 +97,8 @@ class NotificationService {
      */
     async notifyPartnerTransaction(userId, partnerName, transaction) {
         const isExpense = parseFloat(transaction.amount) < 0;
-        const emoji = isExpense ? '💸' : '💰';
         const tipo = isExpense ? 'gastou' : 'recebeu';
-        const title = `${emoji} ${partnerName} ${tipo} R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
+        const title = `${partnerName} ${tipo} R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
         let message = `${partnerName} registrou "${transaction.title}" em ${transaction.category}.`;
 
         if (transaction.notes) {
@@ -113,7 +112,7 @@ class NotificationService {
      * Notifica sobre sincronização bancária concluída
      */
     async notifyBankSyncComplete(userId, bankName, transactionCount) {
-        const title = `🏦 Sincronização ${bankName} concluída`;
+        const title = `Sincronização ${bankName} concluída`;
         const message = `${transactionCount} transações foram importadas do ${bankName}.`;
         return this.createNotification(userId, title, message, 'transaction', '/dashboard/bank');
     }
@@ -122,7 +121,7 @@ class NotificationService {
      * Notifica sobre erro na sincronização bancária
      */
     async notifyBankSyncError(userId, bankName, errorMessage = null) {
-        const title = `⚠️ Erro na sincronização ${bankName}`;
+        const title = `Erro na sincronização ${bankName}`;
         const message = errorMessage || `Não foi possível sincronizar com ${bankName}. Por favor, reconecte sua conta.`;
         return this.createNotification(userId, title, message, 'info', '/dashboard/bank');
     }
@@ -135,22 +134,22 @@ class NotificationService {
 
         if (alertType === 'category_budget') {
             if (percentage >= 100) {
-                title = `🚨 Orçamento ${category} Excedido!`;
+                title = `Orçamento ${category} excedido`;
                 message = `Você ultrapassou o limite de R$ ${limit.toFixed(2)} para ${category}. Gasto atual: R$ ${spent.toFixed(2)}.`;
             } else {
-                title = `⚠️ Alerta: ${percentage.toFixed(0)}% do Orçamento ${category}`;
+                title = `${percentage.toFixed(0)}% do orçamento de ${category}`;
                 message = `Você já usou ${percentage.toFixed(0)}% do seu orçamento para ${category}. Restam R$ ${(limit - spent).toFixed(2)}.`;
             }
         } else if (alertType === 'monthly_budget') {
             if (percentage >= 100) {
-                title = `🚨 Orçamento Mensal Excedido!`;
+                title = 'Orçamento mensal excedido';
                 message = `Você ultrapassou seu orçamento mensal de R$ ${limit.toFixed(2)}. Gasto atual: R$ ${spent.toFixed(2)}.`;
             } else {
-                title = `⚠️ ${percentage.toFixed(0)}% do Orçamento Mensal`;
+                title = `${percentage.toFixed(0)}% do orçamento mensal`;
                 message = `Você atingiu ${percentage.toFixed(0)}% do seu orçamento mensal. Gasto atual: R$ ${spent.toFixed(2)}.`;
             }
         } else if (alertType === 'unusual_spending') {
-            title = `💸 Gasto Alto Detectado`;
+                title = 'Gasto alto detectado';
             message = `Uma transação de R$ ${spent.toFixed(2)} foi registrada em ${category}.`;
         }
 
@@ -279,7 +278,7 @@ class NotificationService {
      * Notifica sobre gasto elevado (necessita atenção do parceiro)
      */
     async notifyLargeExpense(userId, partnerName, transaction) {
-        const title = `🚨 Gasto Alto: R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
+        const title = `Gasto alto: R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`;
         const message = `${partnerName} registrou um gasto de R$ ${Math.abs(parseFloat(transaction.amount)).toFixed(2)} em "${transaction.title}". Isso requer atenção de vocês.`;
 
         return this.createNotification(userId, title, message, 'budget_alert', '/dashboard/transactions');
@@ -352,7 +351,7 @@ class NotificationService {
                     goalText = ` Vocês estão ${progress}% mais perto da meta "${topGoal.title}".`;
                 }
 
-                const title = "📊 Relatório Semanal Duoo";
+                const title = 'Relatório semanal Duoo';
                 const message = `Esta semana vocês economizaram R$ ${balance.toFixed(2)} (Receitas: R$ ${totalIncome.toFixed(2)}, Gastos: R$ ${totalExpense.toFixed(2)}).${goalText}`;
 
                 // Enviar para ambos

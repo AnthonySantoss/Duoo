@@ -16,7 +16,7 @@ const QuickNote = () => {
         setLoading(true);
         try {
             await api.post('/notifications/send-to-partner', { message });
-            setToast({ message: 'Recado enviado para o seu par! ❤️', type: 'success' });
+            setToast({ message: 'Recado enviado para o seu par.', type: 'success' });
             setMessage('');
             // Optional: trigger notification refresh for the local user too if we want, 
             // but this sends to partner.
@@ -44,7 +44,7 @@ const QuickNote = () => {
                 <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Ex: Amor, essa conta já está paga! ❤️"
+                    placeholder="Ex.: Amor, essa conta já está paga."
                     className="w-full px-4 py-3 pb-12 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm resize-none"
                     rows="3"
                 />

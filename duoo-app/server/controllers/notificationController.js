@@ -151,7 +151,7 @@ exports.sendToPartner = async (req, res) => {
 
         const notification = await notificationService.createNotification(
             user.partner_id,
-            `Recado de ${user.name} ❤️`,
+            `Recado de ${user.name}`,
             message,
             'note',
             '/dashboard'

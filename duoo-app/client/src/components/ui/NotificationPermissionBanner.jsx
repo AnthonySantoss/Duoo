@@ -36,7 +36,7 @@ const NotificationPermissionBanner = () => {
         if (granted) {
             // Enviar notificação de teste
             if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🎉 Notificações Ativadas!', {
+                new Notification('Notificações ativadas', {
                     body: 'Você receberá alertas importantes sobre suas finanças.',
                     icon: '/icon-192.png',
                     tag: 'welcome-notification'

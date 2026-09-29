@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, X, Check, AlertCircle, TrendingUp, Target, Wallet, CreditCard } from 'lucide-react';
 import api from '../../services/api';
+import { normalizeNotificationTitle } from '../../utils/notificationText';
 
 const NotificationDropdown = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -173,7 +174,7 @@ const NotificationDropdown = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-2">
                                                     <h4 className="font-semibold text-sm text-slate-900 dark:text-white line-clamp-1">
-                                                        {notification.title}
+                                                        {normalizeNotificationTitle(notification.title)}
                                                     </h4>
                                                     <button
                                                         onClick={(e) => {
