@@ -38,3 +38,9 @@ services:
         sync: false
       - key: PUBLIC_APP_URL
         value: https://duoo-app.vercel.app
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        value: https://duoo-api.onrender.com/api/auth/google/callback

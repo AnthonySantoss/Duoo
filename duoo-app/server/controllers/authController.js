@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { jwtSecret } = require('../config/env');
+const { createAuthorizationUrl, isGoogleConfigured, verifyAuthorizationCode } = require('../services/googleAuthService');
 const { sendPasswordResetEmail } = require('../services/emailService');
 const { setAuthCookie, clearAuthCookie } = require('../utils/authCookie');
 const {
@@ -12,6 +13,70 @@ const {
 } = require('../models');
 
 const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const GOOGLE_STATE_COOKIE = 'duoo_google_oauth_state';
+const getFrontendUrl = () => (process.env.PUBLIC_APP_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/$/, '');
+const getGoogleErrorUrl = (reason) => `${getFrontendUrl()}/login?oauth=error&reason=${encodeURIComponent(reason)}`;
+
+exports.googleStart = (req, res) => {
+    if (!isGoogleConfigured()) return res.redirect(getGoogleErrorUrl('not_configured'));
+
+    const state = crypto.randomBytes(32).toString('hex');
+    res.cookie(GOOGLE_STATE_COOKIE, state, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 10 * 60 * 1000,
+        path: '/api/auth/google'
+    });
+    res.redirect(createAuthorizationUrl(state));
+};
+
+exports.googleCallback = async (req, res) => {
+    const stateCookie = req.cookies[GOOGLE_STATE_COOKIE];
+    res.clearCookie(GOOGLE_STATE_COOKIE, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/auth/google'
+    });
+
+    if (req.query.error) return res.redirect(getGoogleErrorUrl('cancelled'));
+    if (!req.query.code || !stateCookie || stateCookie !== req.query.state) {
+        return res.redirect(getGoogleErrorUrl('invalid_state'));
+    }
+
+    try {
+        const profile = await verifyAuthorizationCode(req.query.code);
+        if (!profile?.sub || !profile.email || profile.email_verified !== true) {
+            return res.redirect(getGoogleErrorUrl('unverified_email'));
+        }
+
+        const email = profile.email.toLowerCase();
+        let user = await User.findOne({ where: { google_id: profile.sub } });
+
+        if (!user) {
+            user = await User.findOne({ where: { email } });
+            if (user) {
+                await user.update({ google_id: profile.sub });
+            } else {
+                const generatedPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+                user = await User.create({
+                    name: profile.name || email.split('@')[0],
+                    email,
+                    password_hash: generatedPassword,
+                    google_id: profile.sub
+                });
+            }
+        }
+
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        setAuthCookie(res, token);
+        return res.redirect(`${getFrontendUrl()}/login?oauth=success`);
+    } catch (error) {
+        console.error('Error authenticating with Google:', error);
+        return res.redirect(getGoogleErrorUrl('failed'));
+    }
+};
 
 exports.register = async (req, res) => {
     try {

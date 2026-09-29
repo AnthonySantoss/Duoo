@@ -10,6 +10,8 @@ router.post('/login', validate(schemas.login), authController.login);
 router.post('/logout', authController.logout);
 router.post('/forgot-password', validate(schemas.forgotPassword), authController.forgotPassword);
 router.post('/reset-password', validate(schemas.resetPassword), authController.resetPassword);
+router.get('/google', authController.googleStart);
+router.get('/google/callback', authController.googleCallback);
 router.get('/me', authMiddleware, authController.getMe);
 
 // Rotas de configurações (protegidas)
