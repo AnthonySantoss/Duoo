@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { corsOrigins } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
@@ -34,6 +35,7 @@ app.disable('x-powered-by');
 // arbitrários como origem do IP.
 app.set('trust proxy', 1);
 app.use(helmet());
+app.use(compression());
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'duoo-api' });

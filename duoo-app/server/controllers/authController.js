@@ -1,13 +1,17 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { jwtSecret } = require('../config/env');
+const { sendPasswordResetEmail } = require('../services/emailService');
 const { setAuthCookie, clearAuthCookie } = require('../utils/authCookie');
 const {
     sequelize, User, Wallet, Transaction, Goal, CreditCard,
     CreditCardPurchase, CreditCardInvoice, Simulation, Loan,
     TransactionCorrection, UserAchievement, BudgetAlert,
-    AlertNotification, Notification
+    AlertNotification, Notification, PasswordResetToken
 } = require('../models');
+
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 exports.register = async (req, res) => {
     try {
@@ -57,6 +61,53 @@ exports.login = async (req, res) => {
 exports.logout = async (req, res) => {
     clearAuthCookie(res);
     res.status(204).send();
+};
+
+exports.forgotPassword = async (req, res) => {
+    const genericResponse = { message: 'Se o e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.' };
+    try {
+        const user = await User.findOne({ where: { email: req.body.email } });
+        if (!user) return res.json(genericResponse);
+
+        await PasswordResetToken.destroy({ where: { user_id: user.id, used_at: null } });
+        const token = crypto.randomBytes(32).toString('hex');
+        await PasswordResetToken.create({
+            user_id: user.id,
+            token_hash: hashResetToken(token),
+            expires_at: new Date(Date.now() + 30 * 60 * 1000)
+        });
+
+        const delivery = await sendPasswordResetEmail({ to: user.email, name: user.name, token });
+        if (delivery.resetUrl && process.env.NODE_ENV !== 'production') {
+            return res.json({ ...genericResponse, developmentResetUrl: delivery.resetUrl });
+        }
+        return res.json(genericResponse);
+    } catch (error) {
+        console.error('Error requesting password reset:', error);
+        return res.status(503).json({ error: 'Não foi possível enviar o e-mail agora. Tente novamente mais tarde.' });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        const resetToken = await PasswordResetToken.findOne({
+            where: { token_hash: hashResetToken(token), used_at: null }
+        });
+        if (!resetToken || new Date(resetToken.expires_at) < new Date()) {
+            return res.status(400).json({ error: 'Este link é inválido ou expirou. Solicite outro.' });
+        }
+
+        const user = await User.findByPk(resetToken.user_id);
+        if (!user) return res.status(400).json({ error: 'Este link é inválido ou expirou. Solicite outro.' });
+
+        await user.update({ password_hash: await bcrypt.hash(password, 10) });
+        await resetToken.update({ used_at: new Date() });
+        return res.json({ message: 'Senha redefinida com sucesso. Você já pode entrar no Duoo.' });
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        return res.status(500).json({ error: 'Não foi possível redefinir a senha.' });
+    }
 };
 
 exports.getMe = async (req, res) => {

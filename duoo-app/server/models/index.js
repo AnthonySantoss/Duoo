@@ -18,6 +18,7 @@ const Recurring = require('./Recurring');
 const { Challenge, UserChallenge } = require('./Challenge');
 const PushSubscription = require('./PushSubscription');
 const UserConfig = require('./UserConfig');
+const PasswordResetToken = require('./PasswordResetToken');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -80,6 +81,9 @@ PushSubscription.belongsTo(User, { foreignKey: 'user_id' });
 User.hasOne(UserConfig, { foreignKey: 'user_id' });
 UserConfig.belongsTo(User, { foreignKey: 'user_id' });
 
+User.hasMany(PasswordResetToken, { foreignKey: 'user_id' });
+PasswordResetToken.belongsTo(User, { foreignKey: 'user_id' });
+
 // Goal & Transaction (Event Buckets)
 Goal.hasMany(Transaction, { foreignKey: 'goal_id' });
 Transaction.belongsTo(Goal, { foreignKey: 'goal_id' });
@@ -112,5 +116,6 @@ module.exports = {
     Challenge,
     UserChallenge,
     PushSubscription,
-    UserConfig
+    UserConfig,
+    PasswordResetToken
 };

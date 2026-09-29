@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -17,13 +17,26 @@ const AuthRedesigned = () => {
     const passwordValidation = useMemo(() => ({ minLength: formData.password.length >= 8, hasUpperCase: /[A-Z]/.test(formData.password), hasLowerCase: /[a-z]/.test(formData.password), hasNumber: /[0-9]/.test(formData.password), hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password) }), [formData.password]);
     const isPasswordValid = Object.values(passwordValidation).every(Boolean);
 
+    useEffect(() => {
+        const handleForgotPassword = (event) => {
+            if (event.target.closest('button')?.textContent?.trim() === 'Esqueci minha senha') navigate('/forgot-password');
+        };
+        document.addEventListener('click', handleForgotPassword);
+        return () => document.removeEventListener('click', handleForgotPassword);
+    }, [navigate]);
+
     const toggleMode = () => { setIsRegistering((current) => !current); setFormData({ name: '', email: '', password: '' }); setError(''); };
     const handleSubmit = async (event) => {
         event.preventDefault();
         setError('');
         if (isRegistering && !isPasswordValid) { setError('A senha não atende aos requisitos de segurança.'); return; }
         setSubmitting(true);
-        try { if (isRegistering) { await register(formData.name, formData.email, formData.password); navigate('/onboarding'); } else { await login(formData.email, formData.password); navigate('/dashboard'); } } catch (submitError) { setError(submitError.response?.data?.error || 'Não foi possível concluir o acesso.'); } finally { setSubmitting(false); }
+        try {
+            const pendingCode = localStorage.getItem('duoo:pending-partner-code');
+            if (isRegistering) await register(formData.name, formData.email, formData.password);
+            else await login(formData.email, formData.password);
+            navigate(pendingCode ? `/join?code=${encodeURIComponent(pendingCode)}` : (isRegistering ? '/onboarding' : '/dashboard'));
+        } catch (submitError) { setError(submitError.response?.data?.error || 'Não foi possível concluir o acesso.'); } finally { setSubmitting(false); }
     };
 
     return <main className="min-h-screen bg-[#f4f7f3] p-3 text-slate-950 dark:bg-slate-950 dark:text-white sm:p-6 lg:p-10 xl:p-14"><div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[1440px] overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_24px_80px_-32px_rgba(15,23,42,0.28)] dark:border-slate-800 dark:bg-slate-900 sm:min-h-[calc(100vh-3rem)] sm:rounded-[36px] lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[minmax(400px,0.9fr)_minmax(520px,1.1fr)] xl:min-h-[calc(100vh-7rem)] 2xl:min-h-[calc(100vh-12rem)]">

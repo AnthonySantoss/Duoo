@@ -23,5 +23,7 @@ module.exports = {
     changePassword: z.object({
         currentPassword: z.string().min(1).max(128),
         newPassword: password
-    })
+    }),
+    forgotPassword: z.object({ email }),
+    resetPassword: z.object({ token: z.string().min(32).max(256), password })
 };
