@@ -95,7 +95,7 @@ exports.register = async (req, res) => {
 
         const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
         setAuthCookie(res, token);
-        res.status(201).json({ user: { id: user.id, name: user.name, email: user.email } });
+        res.status(201).json({ user: { id: user.id, name: user.name, email: user.email }, token });
     } catch (error) {
         console.error('Error registering user:', error);
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -116,7 +116,7 @@ exports.login = async (req, res) => {
 
         const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
         setAuthCookie(res, token);
-        res.json({ user: { id: user.id, name: user.name, email: user.email } });
+        res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(500).json({ error: 'Erro ao realizar login' });

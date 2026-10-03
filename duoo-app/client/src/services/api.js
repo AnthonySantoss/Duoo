@@ -9,6 +9,8 @@ const api = axios.create({
 
 // Request interceptor - Add token to requests
 api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('duoo:access-token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 });
 

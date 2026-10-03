@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
                 console.error('[AuthContext] Failed to load user:', error.response?.status);
                 if (error.response?.status === 401) {
                     localStorage.removeItem('user');
+                    localStorage.removeItem('duoo:access-token');
                     setUser(null);
                 }
             }
@@ -47,6 +48,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('user', JSON.stringify(res.data.user));
+        if (res.data.token) localStorage.setItem('duoo:access-token', res.data.token);
 
         setUser(res.data.user);
 
@@ -60,6 +62,7 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (name, email, password) => {
         const res = await api.post('/auth/register', { name, email, password });
+        if (res.data.token) localStorage.setItem('duoo:access-token', res.data.token);
         setUser(res.data.user);
         setPartner(null);
         setHasPartner(false);
@@ -69,6 +72,7 @@ export const AuthProvider = ({ children }) => {
         console.log('[AuthContext] Logging out...');
         api.post('/auth/logout').catch(() => {});
         localStorage.removeItem('user');
+        localStorage.removeItem('duoo:access-token');
         setUser(null);
         setPartner(null);
         setHasPartner(false);
