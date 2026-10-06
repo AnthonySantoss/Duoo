@@ -44,9 +44,24 @@ router.get('/', auth, async (req, res) => {
         // 3. Buscar faturas de cartão de crédito para o período
         let invoiceItems = [];
         if (year && month) {
-            const creditCards = await CreditCard.findAll({
-                where: { user_id: { [Op.in]: userFilter } }
-            });
+            let cardWhere = { user_id: { [Op.in]: userFilter } };
+            if (viewMode === 'user1') {
+                cardWhere = {
+                    [Op.or]: [
+                        { is_joint: true, user_id: { [Op.in]: userFilter.concat(user.partner_id ? [user.partner_id] : []) } },
+                        { is_joint: false, user_id: userId }
+                    ]
+                };
+            } else if (viewMode === 'user2' && user.partner_id) {
+                cardWhere = {
+                    [Op.or]: [
+                        { is_joint: true, user_id: { [Op.in]: [userId, user.partner_id] } },
+                        { is_joint: false, user_id: user.partner_id }
+                    ]
+                };
+            }
+
+            const creditCards = await CreditCard.findAll({ where: cardWhere });
             const cardIds = creditCards.map(c => c.id);
 
             const invoices = await CreditCardInvoice.findAll({
