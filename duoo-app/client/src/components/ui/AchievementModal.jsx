@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Trophy, Sparkles, X } from 'lucide-react';
 
 const AchievementModal = ({ achievement, onClose }) => {
@@ -18,17 +19,17 @@ const AchievementModal = ({ achievement, onClose }) => {
         setTimeout(onClose, 300); // Wait for animation to complete
     };
 
-    return (
+    return createPortal(
         <>
             {/* Overlay */}
             <div
-                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'
+                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'
                     }`}
                 onClick={handleClose}
             />
 
             {/* Modal */}
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
                 <div
                     className={`bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-900 dark:to-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-8 relative pointer-events-auto border-2 border-amber-200 dark:border-amber-900/50 transition-all duration-500 ${isVisible
                             ? 'scale-100 opacity-100 translate-y-0'
@@ -112,7 +113,8 @@ const AchievementModal = ({ achievement, onClose }) => {
           `}</style>
                 </div>
             </div>
-        </>
+        </>,
+        document.body
     );
 };
 

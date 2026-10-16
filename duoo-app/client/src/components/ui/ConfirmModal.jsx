@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Info, CheckCircle } from 'lucide-react';
 
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, type = 'warning', confirmText = 'Confirmar', cancelText = 'Cancelar' }) => {
@@ -30,8 +31,8 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, type = 'warn
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    return createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-6 animate-in fade-in zoom-in duration-200">
                 <div className="flex flex-col items-center text-center space-y-4">
                     {getIcon()}
@@ -63,7 +64,8 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, type = 'warn
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

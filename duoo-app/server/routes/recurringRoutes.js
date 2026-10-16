@@ -406,8 +406,14 @@ router.put('/:id', auth, async (req, res) => {
 // Delete
 router.delete('/:id', auth, async (req, res) => {
     const { id } = req.params;
+    let t;
     try {
         console.log(`[RecurringRoutes] Attempting to delete item: ${id} for user: ${req.user.id}`);
+
+        // 1. Identificar usuários permitidos (usuário + parceiro)
+        const user = await User.findByPk(req.user.id);
+        const allowedUsers = [req.user.id];
+        if (user && user.partner_id) allowedUsers.push(user.partner_id);
 
         if (id.startsWith('invoice-')) {
             const invoiceId = id.replace('invoice-', '');
@@ -423,10 +429,6 @@ router.delete('/:id', auth, async (req, res) => {
                 return res.status(404).json({ error: 'Fatura não encontrada' });
             }
 
-            const user = await User.findByPk(req.user.id);
-            const allowedUsers = [req.user.id];
-            if (user.partner_id) allowedUsers.push(user.partner_id);
-
             if (!allowedUsers.includes(invoice.CreditCard.user_id)) {
                 console.log(`[RecurringRoutes] Permission denied for invoice ${invoiceId}`);
                 return res.status(403).json({ error: 'Sem permissão' });
@@ -437,28 +439,65 @@ router.delete('/:id', auth, async (req, res) => {
             return res.sendStatus(204);
         }
 
-        // 1. Identificar usuários permitidos (usuário + parceiro)
-        const user = await User.findByPk(req.user.id);
-        const allowedUsers = [req.user.id];
-        if (user.partner_id) allowedUsers.push(user.partner_id);
+        t = await Transaction.sequelize.transaction();
 
         // Deletar item recorrente padrão (aluguel, salário, etc)
         const item = await Recurring.findOne({
             where: {
                 id: id,
                 user_id: { [Op.in]: allowedUsers }
-            }
+            },
+            transaction: t,
+            lock: t.LOCK.UPDATE
         });
 
         if (!item) {
+            await t.rollback();
             console.log(`[RecurringRoutes] Recurring item ${id} not found for user or partner`);
             return res.status(404).json({ error: 'Item não encontrado' });
         }
 
-        await item.destroy();
-        console.log(`[RecurringRoutes] Recurring item ${id} deleted successfully`);
+        // Se a recorrência estiver com status 'paid' ou 'received' e possuir transação/carteira, realiza o estorno
+        if (item.type === 'expense' && item.status === 'paid') {
+            const walletId = item.wallet_id;
+            if (walletId) {
+                const wallet = await Wallet.findByPk(walletId, { transaction: t, lock: t.LOCK.UPDATE });
+                if (wallet) {
+                    wallet.balance = parseFloat(wallet.balance) + Math.abs(parseFloat(item.amount));
+                    await wallet.save({ transaction: t });
+                }
+            }
+
+            if (item.transaction_id) {
+                await Transaction.destroy({
+                    where: { id: item.transaction_id },
+                    transaction: t
+                });
+            }
+        } else if (item.type === 'income' && item.status === 'received') {
+            const walletId = item.wallet_id;
+            if (walletId) {
+                const wallet = await Wallet.findByPk(walletId, { transaction: t, lock: t.LOCK.UPDATE });
+                if (wallet) {
+                    wallet.balance = parseFloat(wallet.balance) - parseFloat(item.amount);
+                    await wallet.save({ transaction: t });
+                }
+            }
+
+            if (item.transaction_id) {
+                await Transaction.destroy({
+                    where: { id: item.transaction_id },
+                    transaction: t
+                });
+            }
+        }
+
+        await item.destroy({ transaction: t });
+        await t.commit();
+        console.log(`[RecurringRoutes] Recurring item ${id} deleted successfully with refund/cleanup if applicable`);
         res.sendStatus(204);
     } catch (error) {
+        if (t) await t.rollback();
         console.error('[RecurringRoutes] Delete failed:', error);
         res.status(500).json({ error: 'Erro ao deletar: ' + error.message });
     }

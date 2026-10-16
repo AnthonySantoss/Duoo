@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, Bell, CheckCircle2, CreditCard, Target, Wallet, X } from 'lucide-react';
 import { normalizeNotificationTitle } from '../../utils/notificationText';
 
@@ -47,7 +48,7 @@ const NotificationModal = ({ notification, onClose }) => {
 
     const { icon: Icon, tone } = getIcon(notification.type);
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="presentation">
             <button
                 aria-label="Fechar notificação"
@@ -89,7 +90,8 @@ const NotificationModal = ({ notification, onClose }) => {
                     Entendi
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
