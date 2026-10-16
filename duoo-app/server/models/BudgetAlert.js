@@ -55,7 +55,10 @@ const BudgetAlert = sequelize.define('BudgetAlert', {
     }
 }, {
     tableName: 'budget_alerts',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { name: 'idx_budget_alerts_user_active', fields: ['user_id', 'is_active'] }
+    ]
 });
 
 module.exports = BudgetAlert;

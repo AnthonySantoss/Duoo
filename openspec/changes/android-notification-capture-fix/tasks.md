@@ -1,0 +1,6 @@
+# Tarefas: Correção da Captura de Notificações no Android
+
+- [x] **Tarefa 1**: Em `duoo-app/android-capture/app/src/main/AndroidManifest.xml`, alterar `android:exported="false"` para `android:exported="true"` no `NotificationCaptureService`.
+- [x] **Tarefa 2**: Em `duoo-app/android-capture/app/src/main/java/com/duoo/capture/NotificationParser.kt`, adicionar `"br.com.bb.android"` (e pacotes bancários faltantes) em `SUPPORTED_PACKAGES` e incluir termos de saída (`"pagou"`, `"pagamento"`, `"enviou"`, `"transferiu"`, `"débito"`) na classificação de `expense`.
+- [x] **Tarefa 3**: Em `duoo-app/android-capture/app/src/main/java/com/duoo/capture/NotificationCaptureService.kt` e `MainActivity.kt`, evitar o descarte silencioso quando `isCreditCard == true` e `creditCardId <= 0` (fazendo fallback para `walletId` se válido e pré-selecionando o primeiro cartão na UI caso exista).
+- [x] **Tarefa 4**: Em `duoo-app/android-capture/app/src/main/java/com/duoo/capture/MainActivity.kt` e no backend (`duoo-app/server/controllers/authController.js`), garantir que o token JWT usado pelo app Android seja atualizado sempre que a WebView autenticar e tenha validade adequada para operação em background sem expirar em 24h.

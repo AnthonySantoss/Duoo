@@ -43,6 +43,12 @@ const CreditCardPurchase = sequelize.define('CreditCardPurchase', {
         type: DataTypes.TEXT,
         allowNull: true
     }
+}, {
+    indexes: [
+        { name: 'idx_cc_purchases_card_remaining', fields: ['credit_card_id', 'remaining_installments'] },
+        { name: 'idx_cc_purchases_purchase_date', fields: ['purchase_date'] },
+        { name: 'idx_cc_purchases_card_date', fields: ['credit_card_id', 'purchase_date'] }
+    ]
 });
 
 module.exports = CreditCardPurchase;

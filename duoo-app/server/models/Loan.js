@@ -56,6 +56,10 @@ const Loan = sequelize.define('Loan', {
         allowNull: true,
         comment: 'ID da transação bancária vinculada (saque/transferência de origem)'
     }
+}, {
+    indexes: [
+        { name: 'idx_loans_user_status', fields: ['user_id', 'status'] }
+    ]
 });
 
 module.exports = Loan;

@@ -44,8 +44,17 @@ const CreditCardInvoice = sequelize.define('CreditCardInvoice', {
     timestamps: true,
     indexes: [
         {
+            name: 'idx_invoices_card_month_year',
             unique: true,
             fields: ['credit_card_id', 'month', 'year']
+        },
+        {
+            name: 'idx_invoices_due_date_paid',
+            fields: ['due_date', 'paid']
+        },
+        {
+            name: 'idx_invoices_card_year_month_paid',
+            fields: ['credit_card_id', 'year', 'month', 'paid']
         }
     ]
 });

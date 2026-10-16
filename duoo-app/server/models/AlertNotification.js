@@ -44,7 +44,10 @@ const AlertNotification = sequelize.define('AlertNotification', {
     }
 }, {
     tableName: 'alert_notifications',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { name: 'idx_alert_notifications_user_read', fields: ['user_id', 'is_read'] }
+    ]
 });
 
 module.exports = AlertNotification;

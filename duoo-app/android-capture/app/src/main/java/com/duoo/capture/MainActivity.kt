@@ -29,6 +29,8 @@ private data class CreditCardOption(val id: Long, val name: String)
 private data class BankOption(val label: String, val packageName: String)
 
 class MainActivity : AppCompatActivity() {
+    private val productionApi = "https://duoo-api.onrender.com"
+    private val apiTimeoutMs = 45_000
     private lateinit var apiBase: EditText
     private lateinit var email: EditText
     private lateinit var password: EditText
@@ -53,7 +55,11 @@ class MainActivity : AppCompatActivity() {
         BankOption("Itaú", "com.itau"),
         BankOption("Bradesco", "com.bradesco"),
         BankOption("Santander", "com.santander.app"),
-        BankOption("Banco do Brasil", "com.bb"),
+        BankOption("Banco do Brasil", "br.com.bb.android"),
+        BankOption("Banco do Brasil (Legado)", "com.bb"),
+        BankOption("Caixa Econômica", "br.com.gabba.Caixa"),
+        BankOption("C6 Bank", "com.c6bank.app"),
+        BankOption("PicPay", "com.picpay"),
         BankOption("Mercado Pago", "com.mercadopago.wallet")
     )
 
@@ -65,11 +71,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        syncCookieFromManager()
         if (::statusTitle.isInitialized) refreshCaptureStatus()
     }
 
     private fun buildContent(): View {
-        apiBase = field("URL da API", "https://seu-dominio.com")
+        apiBase = field("URL da API", productionApi)
         email = field("E-mail", "")
         email.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
         password = field("Senha", "")
@@ -92,7 +99,17 @@ class MainActivity : AppCompatActivity() {
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         refreshCaptureStatus()
+        restoreSession()
         return root
+    }
+
+    private fun restoreSession() {
+        val savedCookie = secureStore.get("cookie") ?: return
+        val savedApi = secureStore.get("api_base")?.trimEnd('/') ?: return
+        apiBase.setText(savedApi)
+        updateStatus("Sessão salva", false)
+        status.text = "Carregando suas carteiras..."
+        fetchWallets(savedApi, savedCookie)
     }
 
     private fun header(): View = LinearLayout(this).apply {
@@ -156,6 +173,12 @@ class MainActivity : AppCompatActivity() {
         wallets = loadedWallets
         val labels = if (wallets.isEmpty()) listOf("Faça login para carregar suas carteiras") else wallets.map { it.name }
         defaultWalletSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        if (wallets.isNotEmpty()) {
+            val currentWallet = secureStore.get("wallet_id")
+            if (currentWallet.isNullOrBlank() || wallets.none { it.id.toString() == currentWallet }) {
+                secureStore.put("wallet_id", wallets[0].id.toString())
+            }
+        }
         selectSpinner(defaultWalletSpinner, secureStore.get("wallet_id"))
         defaultWalletSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
@@ -166,6 +189,12 @@ class MainActivity : AppCompatActivity() {
         walletMappingsContainer.removeAllViews()
         mappingSpinners.clear()
         defaultCreditCardSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, if (creditCards.isEmpty()) listOf("Faça login para carregar seus cartões") else creditCards.map { it.name })
+        if (creditCards.isNotEmpty()) {
+            val currentCard = secureStore.get("credit_card_id")
+            if (currentCard.isNullOrBlank() || creditCards.none { it.id.toString() == currentCard }) {
+                secureStore.put("credit_card_id", creditCards[0].id.toString())
+            }
+        }
         selectCreditCardSpinner(defaultCreditCardSpinner, secureStore.get("credit_card_id"))
         defaultCreditCardSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
@@ -229,10 +258,11 @@ class MainActivity : AppCompatActivity() {
             try {
                 val connection = URL("$base/api/wallets?mine=true").openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 10_000
+                connection.connectTimeout = apiTimeoutMs
+                connection.readTimeout = apiTimeoutMs
                 connection.setRequestProperty("Cookie", cookie)
                 val code = connection.responseCode
+                extractCookie(connection)?.let { updateCookieIfChanged(it) }
                 if (code !in 200..299) throw IllegalStateException("HTTP $code")
                 val json = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
                 val loaded = (0 until json.length()).mapNotNull { index ->
@@ -258,10 +288,11 @@ class MainActivity : AppCompatActivity() {
             try {
                 val connection = URL("$base/api/credit-cards?viewMode=joint").openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 10_000
+                connection.connectTimeout = apiTimeoutMs
+                connection.readTimeout = apiTimeoutMs
                 connection.setRequestProperty("Cookie", cookie)
                 val code = connection.responseCode
+                extractCookie(connection)?.let { updateCookieIfChanged(it) }
                 if (code !in 200..299) throw IllegalStateException("HTTP $code")
                 val json = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
                 creditCards = (0 until json.length()).mapNotNull { index ->
@@ -287,6 +318,9 @@ class MainActivity : AppCompatActivity() {
         activate.setOnClickListener {
             if (secureStore.get("cookie") == null) { updateStatus("Faça login para ativar a captura.", false); return@setOnClickListener }
             if (secureStore.get("wallet_id").isNullOrBlank()) { updateStatus("Escolha uma carteira padrão antes de ativar.", false); return@setOnClickListener }
+            if (creditCards.isNotEmpty() && secureStore.get("credit_card_id").isNullOrBlank()) {
+                secureStore.put("credit_card_id", creditCards[0].id.toString())
+            }
             secureStore.put("consent", "accepted"); secureStore.put("enabled", "true"); startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); updateStatus("Abra o Duoo Capture nessa tela e permita o acesso às notificações.", true)
         }
         consent.setOnCheckedChangeListener { _, checked -> activate.isEnabled = checked; if (!checked) { secureStore.put("enabled", "false"); secureStore.remove("consent"); updateStatus("A captura está pausada.", false) } }
@@ -313,24 +347,57 @@ class MainActivity : AppCompatActivity() {
                 val connection = URL("$base/api/auth/login").openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.doOutput = true
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 10_000
+                connection.connectTimeout = apiTimeoutMs
+                connection.readTimeout = apiTimeoutMs
                 connection.setRequestProperty("Content-Type", "application/json")
                 val body = JSONObject().apply { put("email", loginEmail); put("password", loginPassword) }.toString()
                 connection.outputStream.use { it.write(body.toByteArray()) }
                 val code = connection.responseCode
-                val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()?.substringBefore(';')
+                val cookie = extractCookie(connection)
                 if (code in 200..299 && cookie != null) {
                     secureStore.put("api_base", base)
-                    secureStore.put("cookie", cookie)
+                    updateCookieIfChanged(cookie)
                     runOnUiThread { updateStatus("Login salvo", false); status.text = "Carregando suas carteiras..." }
                     fetchWallets(base, cookie)
                 } else runOnUiThread { updateStatus("Não foi possível entrar. Verifique os dados.", false) }
                 connection.disconnect()
-            } catch (_: Exception) {
-                runOnUiThread { updateStatus("Não foi possível conectar à API.", false); status.text = "Verifique a conexão e tente novamente." }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    updateStatus("Não foi possível conectar à API.", false)
+                    status.text = "${error.javaClass.simpleName}: ${error.message?.take(100) ?: "sem detalhes"}"
+                }
             }
         }.start()
+    }
+
+    private fun extractCookie(connection: HttpURLConnection): String? {
+        val headers = connection.headerFields
+        val setCookies = headers["Set-Cookie"] ?: headers["set-cookie"] ?: return null
+        return setCookies.firstOrNull { it.startsWith("duoo_access_token=") }?.substringBefore(';')
+            ?: setCookies.firstOrNull { it.startsWith("token=") }?.substringBefore(';')
+            ?: setCookies.firstOrNull()?.substringBefore(';')
+    }
+
+    private fun updateCookieIfChanged(newCookie: String?) {
+        if (newCookie.isNullOrBlank()) return
+        val current = secureStore.get("cookie")
+        if (current != newCookie) {
+            secureStore.put("cookie", newCookie)
+        }
+    }
+
+    fun syncCookieFromManager(targetUrl: String? = null) {
+        val url = targetUrl ?: secureStore.get("api_base") ?: productionApi
+        try {
+            val managerCookie = android.webkit.CookieManager.getInstance().getCookie(url) ?: return
+            val token = managerCookie.split(";")
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("duoo_access_token=") || it.startsWith("token=") }
+            if (!token.isNullOrBlank()) {
+                updateCookieIfChanged(token)
+            }
+        } catch (_: Exception) {
+        }
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun marginParams(top: Int = 0, height: Int = -2) = LinearLayout.LayoutParams(-1, if (height == -2) -2 else dp(height)).apply { topMargin = dp(top) }

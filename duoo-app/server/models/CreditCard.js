@@ -47,6 +47,11 @@ const CreditCard = sequelize.define('CreditCard', {
         type: DataTypes.DATE,
         allowNull: true
     }
+}, {
+    indexes: [
+        { name: 'idx_credit_cards_user_id', fields: ['user_id'] },
+        { name: 'idx_credit_cards_user_joint', fields: ['user_id', 'is_joint'] }
+    ]
 });
 
 module.exports = CreditCard;

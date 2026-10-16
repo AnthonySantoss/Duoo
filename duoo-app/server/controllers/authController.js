@@ -69,7 +69,7 @@ exports.googleCallback = async (req, res) => {
             }
         }
 
-        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '30d' });
         setAuthCookie(res, token);
         return res.redirect(`${getFrontendUrl()}/login?oauth=success`);
     } catch (error) {
@@ -93,7 +93,7 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({ name, email, password_hash: hashedPassword });
 
-        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '30d' });
         setAuthCookie(res, token);
         res.status(201).json({ user: { id: user.id, name: user.name, email: user.email }, token });
     } catch (error) {
@@ -114,7 +114,7 @@ exports.login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) return res.status(401).json({ error: 'Credenciais inválidas' });
 
-        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '1d' });
+        const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '30d' });
         setAuthCookie(res, token);
         res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
     } catch (error) {

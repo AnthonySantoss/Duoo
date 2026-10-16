@@ -68,6 +68,11 @@ const Goal = sequelize.define('Goal', {
         type: DataTypes.BOOLEAN,
         defaultValue: false
     }
+}, {
+    indexes: [
+        { name: 'idx_goals_user_id', fields: ['user_id'] },
+        { name: 'idx_goals_yielding_amount', fields: ['is_yielding', 'current_amount'] }
+    ]
 });
 
 module.exports = Goal;

@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const sequelize = require('./config/database');
+const { ensureDatabaseIndexes } = require('./utils/dbIndexes');
 
 console.log('--- Iniciando Ciclo de Migrações Seguras (Idempotentes) ---');
 
@@ -55,7 +56,8 @@ async function runAll() {
     // PostgreSQL, o schema atual dos modelos já é criado pelo sync acima.
     // Isso evita executar PRAGMA/AUTOINCREMENT/renomeações incompatíveis.
     if (sequelize.getDialect() === 'postgres') {
-        console.log('✅ PostgreSQL detectado: migrações legadas SQLite ignoradas.');
+        console.log('✅ PostgreSQL detectado: aplicando índices de performance...');
+        await ensureDatabaseIndexes(sequelize);
         await sequelize.close();
         return;
     }
@@ -69,6 +71,9 @@ async function runAll() {
             console.log(`⚠️  ${script} falhou ou já aplicado. Detalhe: ${error.message}`);
         }
     }
+
+    console.log('\n--- Aplicando índices de performance no banco de dados ---');
+    await ensureDatabaseIndexes(sequelize);
 
     console.log('\n--- Todas as migrações foram processadas ---');
 }

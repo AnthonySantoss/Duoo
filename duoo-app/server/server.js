@@ -3,6 +3,7 @@ const { sequelize } = require('./models');
 const challengeController = require('./controllers/challengeController');
 const { scheduleYieldJob } = require('./services/yieldService');
 const notificationService = require('./services/notificationService');
+const { ensureDatabaseIndexes } = require('./utils/dbIndexes');
 
 const PORT = process.env.PORT || 5000;
 
@@ -44,8 +45,11 @@ function scheduleNotificationJobs() {
     console.log('✅ Notification jobs scheduled');
 }
 
-sequelize.sync({ force: false }).then(() => {
+sequelize.sync({ force: false }).then(async () => {
     console.log('Database synced');
+
+    // Garantir criação de todos os índices de alta performance
+    await ensureDatabaseIndexes(sequelize);
 
     // Iniciar agendador de rendimentos
     scheduleYieldJob();

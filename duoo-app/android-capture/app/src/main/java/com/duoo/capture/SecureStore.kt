@@ -14,9 +14,9 @@ class SecureStore(context: Context) {
     private val keyAlias = "duoo_capture_key"
 
     fun put(key: String, value: String) {
-        val iv = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        val iv = cipher.iv
         val encrypted = cipher.doFinal(value.toByteArray(StandardCharsets.UTF_8))
         preferences.edit()
             .putString(key, encode(iv) + ":" + encode(encrypted))
@@ -40,13 +40,15 @@ class SecureStore(context: Context) {
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         keyStore.getKey(keyAlias, null)?.let { return it as SecretKey }
-        return KeyGenerator.getInstance("AES", "AndroidKeyStore").apply {
-            init(256, android.security.keystore.KeyGenParameterSpec.Builder(
-                keyAlias,
-                android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT
-            ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build())
+        val specification = android.security.keystore.KeyGenParameterSpec.Builder(
+            keyAlias,
+            android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT
+        ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .build()
+        return KeyGenerator.getInstance("AES", "AndroidKeyStore").also {
+            it.init(specification)
         }.generateKey()
     }
 

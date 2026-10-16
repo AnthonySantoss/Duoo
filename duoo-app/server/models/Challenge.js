@@ -74,7 +74,19 @@ const UserChallenge = sequelize.define('UserChallenge', {
     },
     end_date: {
         type: DataTypes.DATE
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    challenge_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
     }
+}, {
+    indexes: [
+        { name: 'idx_user_challenges_user_status', fields: ['user_id', 'status'] }
+    ]
 });
 
 // UserChallenge associations will be added in models/index.js

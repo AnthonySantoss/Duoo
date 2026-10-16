@@ -55,7 +55,11 @@ const Achievement = sequelize.define('Achievement', {
     }
 }, {
     tableName: 'achievements',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { name: 'idx_achievements_code', fields: ['code'] },
+        { name: 'idx_achievements_is_active', fields: ['is_active'] }
+    ]
 });
 
 module.exports = Achievement;

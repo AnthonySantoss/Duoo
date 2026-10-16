@@ -42,6 +42,10 @@ const UserAchievement = sequelize.define('UserAchievement', {
         {
             unique: true,
             fields: ['user_id', 'achievement_id']
+        },
+        {
+            name: 'idx_user_achievements_user_id',
+            fields: ['user_id']
         }
     ]
 });

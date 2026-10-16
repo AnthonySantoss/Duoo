@@ -47,6 +47,13 @@ const Recurring = sequelize.define('Recurring', {
             key: 'id'
         }
     }
+}, {
+    indexes: [
+        { name: 'idx_recurrings_user_date', fields: ['user_id', 'date'] },
+        { name: 'idx_recurrings_wallet_id', fields: ['wallet_id'] },
+        { name: 'idx_recurrings_transaction_id', fields: ['transaction_id'] },
+        { name: 'idx_recurrings_status_date', fields: ['status', 'date'] }
+    ]
 });
 
 module.exports = Recurring;

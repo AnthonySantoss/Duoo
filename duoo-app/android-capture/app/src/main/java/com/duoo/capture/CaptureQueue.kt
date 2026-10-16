@@ -7,7 +7,9 @@ class CaptureQueue(private val store: SecureStore) {
     @Synchronized
     fun add(transaction: CapturedTransaction, walletId: Long, creditCardId: Long) {
         val queue = read()
-        if (queue.any { it.optString("external_id") == transaction.externalId }) return
+        for (index in 0 until queue.length()) {
+            if (queue.getJSONObject(index).optString("external_id") == transaction.externalId) return
+        }
         queue.put(toJson(transaction, walletId, creditCardId))
         while (queue.length() > MAX_ITEMS) queue.remove(0)
         store.put(KEY, queue.toString())
@@ -26,7 +28,13 @@ class CaptureQueue(private val store: SecureStore) {
     }
 
     private fun read(): JSONArray = try {
-        JSONArray(store.get(KEY) ?: "[]")
+        JSONArray(store.get(KEY) ?: "[]").also { queue ->
+            for (index in 0 until queue.length()) {
+                val item = queue.getJSONObject(index)
+                if (item.optLong("credit_card_id", 0L) <= 0L) item.remove("credit_card_id")
+                if (item.optLong("wallet_id", 0L) <= 0L) item.remove("wallet_id")
+            }
+        }
     } catch (_: Exception) {
         JSONArray()
     }
@@ -36,8 +44,8 @@ class CaptureQueue(private val store: SecureStore) {
         put("title", transaction.title)
         put("amount", transaction.amount)
         put("type", transaction.type)
-        put("wallet_id", walletId)
-        put("credit_card_id", creditCardId)
+        if (walletId > 0) put("wallet_id", walletId)
+        if (creditCardId > 0) put("credit_card_id", creditCardId)
         put("source_type", transaction.sourceType)
         put("source_package", transaction.sourcePackage)
         put("confidence", transaction.confidence)

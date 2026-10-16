@@ -19,6 +19,10 @@ const { Challenge, UserChallenge } = require('./Challenge');
 const PushSubscription = require('./PushSubscription');
 const UserConfig = require('./UserConfig');
 const PasswordResetToken = require('./PasswordResetToken');
+const Invoice = require('./Invoice');
+const InvoiceItem = require('./InvoiceItem');
+const CapturedTransaction = require('./CapturedTransaction');
+const Asset = require('./Asset');
 
 // Associations
 User.hasMany(Wallet, { foreignKey: 'user_id' });
@@ -95,6 +99,13 @@ UserChallenge.belongsTo(User, { foreignKey: 'user_id' });
 Challenge.hasMany(UserChallenge, { foreignKey: 'challenge_id' });
 UserChallenge.belongsTo(Challenge, { foreignKey: 'challenge_id' });
 
+// Captured Transactions & Assets
+User.hasMany(CapturedTransaction, { foreignKey: 'user_id' });
+CapturedTransaction.belongsTo(User, { foreignKey: 'user_id' });
+
+User.hasMany(Asset, { foreignKey: 'user_id' });
+Asset.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -117,5 +128,9 @@ module.exports = {
     UserChallenge,
     PushSubscription,
     UserConfig,
-    PasswordResetToken
+    PasswordResetToken,
+    Invoice,
+    InvoiceItem,
+    CapturedTransaction,
+    Asset
 };

@@ -7,7 +7,7 @@ const options = {
     // in a cross-site request. Secure is required by browsers for SameSite=None.
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
     path: '/'
 };
 

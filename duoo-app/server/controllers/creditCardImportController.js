@@ -2,24 +2,33 @@ const multer = require('multer');
 const { Op } = require('sequelize');
 const { sequelize, CreditCard, CreditCardPurchase, CreditCardInvoice, User } = require('../models');
 const { parseCSV, parseOFX, detectCategory } = require('./importController');
+const parsePDF = require('pdf-parse');
 
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const accepted = ['text/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'];
-        if (accepted.includes(file.mimetype) || /\.(csv|ofx)$/i.test(file.originalname)) return cb(null, true);
-        return cb(new Error('Apenas arquivos CSV e OFX são permitidos'));
+        if (accepted.includes(file.mimetype) || /\.(csv|ofx|pdf)$/i.test(file.originalname)) return cb(null, true);
+        return cb(new Error('Apenas arquivos CSV, OFX e PDF são permitidos'));
     }
 });
 
 const normalizeHeader = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const parseBrazilianAmount = (value) => {
-    const normalized = String(value || '').replace(/\s/g, '').replace(/R\$/i, '');
-    if (normalized.includes(',') && normalized.includes('.')) return Number(normalized.replace(/\./g, '').replace(',', '.'));
-    if (normalized.includes(',')) return Number(normalized.replace(',', '.'));
-    return Number(normalized);
+    let normalized = String(value || '').trim().replace(/\s/g, '').replace(/R\$/i, '');
+    if (!normalized) return NaN;
+    const negativeByParentheses = /^\(.*\)$/.test(normalized);
+    normalized = normalized.replace(/[()]/g, '').replace(/[^\d,\.\-+]/g, '');
+    if (normalized.includes(',') && normalized.includes('.')) {
+        const decimalSeparator = normalized.lastIndexOf(',') > normalized.lastIndexOf('.') ? ',' : '.';
+        normalized = normalized.replace(decimalSeparator === ',' ? /\./g : /,/g, '').replace(decimalSeparator, '.');
+    } else if (normalized.includes(',')) {
+        normalized = normalized.replace(/,/g, '.');
+    }
+    const amount = Number(normalized);
+    return negativeByParentheses ? -Math.abs(amount) : amount;
 };
 
 const parseStatementDate = (value) => {
@@ -35,9 +44,12 @@ const parseStatementDate = (value) => {
 
 const normalizeCSVRows = (rows) => rows.map((row) => {
     const keys = Object.keys(row);
-    const findKey = (candidates) => keys.find((key) => candidates.some((candidate) => normalizeHeader(key) === candidate || normalizeHeader(key).includes(candidate)));
-    const dateKey = findKey(['data', 'date', 'dtposted', 'compra', 'lancamento']);
-    const descriptionKey = findKey(['descricao', 'description', 'historico', 'memo', 'estabelecimento', 'merchant']);
+    const findKey = (candidates) => keys.find((key) => {
+        const header = normalizeHeader(key).replace(/[^a-z0-9]/g, '');
+        return candidates.includes(header) || candidates.some((candidate) => ['valor', 'amount', 'total'].includes(candidate) && header.startsWith(candidate));
+    });
+    const dateKey = findKey(['data', 'date', 'dtposted', 'compra', 'lancamento', 'datadacompra']);
+    const descriptionKey = findKey(['descricao', 'description', 'historico', 'memo', 'estabelecimento', 'merchant', 'title', 'lancamento', 'transacao']);
     const amountKey = findKey(['valor', 'amount', 'trnamt', 'debito', 'credito', 'total']);
     return {
         date: parseStatementDate(dateKey ? row[dateKey] : ''),
@@ -46,19 +58,67 @@ const normalizeCSVRows = (rows) => rows.map((row) => {
     };
 });
 
+const portugueseMonths = { jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06', jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12' };
+
+const parseInterInvoicePDF = async (buffer) => {
+    const { text } = await parsePDF(buffer);
+    if (!/Despesas da fatura/i.test(text) || !/Total da sua fatura/i.test(text)) {
+        throw new Error('PDF não reconhecido como fatura do Inter ou sem texto selecionável');
+    }
+
+    const sectionStart = text.search(/Despesas da fatura/i);
+    const nextInvoice = text.search(/Próxima fatura/i);
+    const section = text.slice(sectionStart, nextInvoice > sectionStart ? nextInvoice : undefined);
+    const datePattern = /(?:^|\n)\s*(\d{1,2})\s+de\s+([a-zç]{3})\.?\s+(\d{4})/gim;
+    const dates = [...section.matchAll(datePattern)];
+    const rows = [];
+
+    for (let index = 0; index < dates.length; index += 1) {
+        const match = dates[index];
+        const start = match.index + match[0].indexOf(match[1]);
+        const end = index + 1 < dates.length ? dates[index + 1].index : section.length;
+        const record = section.slice(start, end).replace(/\s+/g, ' ').trim();
+        const month = portugueseMonths[match[2].toLowerCase().slice(0, 3)];
+        if (!month) continue;
+
+        // The Inter PDF marks purchases with "- R$" and settlements with "+ R$".
+        // A few card installment rows have no sign, so use their trailing amount.
+        const amounts = [...record.matchAll(/([+-])?\s*R\$\s*((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/g)];
+        const amountMatch = amounts[amounts.length - 1];
+        if (!amountMatch) continue;
+        const sign = amountMatch[1];
+        const description = record.slice(0, amountMatch.index).replace(/\s*[+-]?\s*$/, '').trim();
+        if (!description || /pagamento\s+(?:on\s+line|de\s+fatura)|pagto/i.test(description)) continue;
+
+        rows.push({
+            date: `${match[3]}-${month}-${match[1].padStart(2, '0')}`,
+            description,
+            amount: sign === '+' && /estorno|devolu[cç][aã]o|cancelamento/i.test(description)
+                ? -parseBrazilianAmount(amountMatch[2])
+                : Math.abs(parseBrazilianAmount(amountMatch[2]))
+        });
+    }
+
+    if (!rows.length) throw new Error('Nenhuma compra encontrada no PDF da fatura do Inter');
+    return rows;
+};
+
 const parseFile = async (file) => {
     const extension = file.originalname.split('.').pop().toLowerCase();
     if (extension === 'csv') return normalizeCSVRows(await parseCSV(file.buffer));
     if (extension === 'ofx') return parseOFX(file.buffer);
+    if (extension === 'pdf') return parseInterInvoicePDF(file.buffer);
     throw new Error('Formato de arquivo não suportado');
 };
 
+const isInvoicePayment = (description) => /\b(pagamento\s+recebido|pagamento.*fatura|pagamento.*cart[aã]o|pagto\.?\s*.*fatura|pagto\.?\s*.*cart[aã]o)\b/i.test(description);
+
 const normalizeRows = (rows) => rows
     .map((row) => {
-        const amount = Math.abs(Number(row.amount));
+        const amount = Number(row.amount);
         const description = String(row.description || 'Compra importada').trim().slice(0, 255);
         const date = String(row.date || '').slice(0, 10);
-        if (!description || !date || !Number.isFinite(amount) || amount <= 0) return null;
+        if (!description || !date || !Number.isFinite(amount) || amount === 0 || isInvoicePayment(description)) return null;
         return { date, description, amount: Number(amount.toFixed(2)), category: detectCategory(description) };
     })
     .filter(Boolean)

@@ -23,7 +23,10 @@ const PushSubscription = sequelize.define('PushSubscription', {
 }, {
     tableName: 'push_subscriptions',
     timestamps: true,
-    underscored: true
+    underscored: true,
+    indexes: [
+        { name: 'idx_push_subscriptions_user_id', fields: ['user_id'] }
+    ]
 });
 
 module.exports = PushSubscription;

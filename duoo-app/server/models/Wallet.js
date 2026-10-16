@@ -48,6 +48,11 @@ const Wallet = sequelize.define('Wallet', {
         type: DataTypes.DATE,
         allowNull: true
     }
+}, {
+    indexes: [
+        { name: 'idx_wallets_user_id', fields: ['user_id'] },
+        { name: 'idx_wallets_pluggy_account', fields: ['pluggy_account_id'] }
+    ]
 });
 
 module.exports = Wallet;

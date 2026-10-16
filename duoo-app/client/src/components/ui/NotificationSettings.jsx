@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, BellOff, Check, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
 import Card from './Card';
+import Select from './Select';
 import api from '../../services/api';
 
 const NotificationSettings = () => {
@@ -204,18 +205,18 @@ const NotificationSettings = () => {
                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                                     Horário ideal:
                                 </label>
-                                <select 
+                                <Select 
                                     aria-label="Definir horário do lembrete diário"
                                     value={config.daily_reminder_hour}
                                     onChange={(e) => updateConfig({ daily_reminder_hour: parseInt(e.target.value) })}
-                                    className="rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
+                                    className="rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm p-2 focus:ring-2 focus:ring-emerald-500 outline-none font-medium w-32"
                                 >
                                     {[...Array(24).keys()].map(h => (
                                         <option key={h} value={h}>
                                             {h.toString().padStart(2, '0')}:00
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </div>
                         )}
                     </div>

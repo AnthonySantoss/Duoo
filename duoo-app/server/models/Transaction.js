@@ -89,6 +89,14 @@ const Transaction = sequelize.define('Transaction', {
             key: 'id'
         }
     }
+}, {
+    indexes: [
+        { name: 'idx_transactions_user_date', fields: ['user_id', 'date'] },
+        { name: 'idx_transactions_wallet_date', fields: ['wallet_id', 'date'] },
+        { name: 'idx_transactions_wallet_ext_id', fields: ['wallet_id', 'source_external_id'] },
+        { name: 'idx_transactions_user_type_date', fields: ['user_id', 'type', 'date'] },
+        { name: 'idx_transactions_user_category_date', fields: ['user_id', 'category', 'date'] }
+    ]
 });
 
 module.exports = Transaction;
