@@ -3,13 +3,9 @@ package com.duoo.capture
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 class NotificationCaptureService : NotificationListenerService() {
     private val logTag = "DuooCapture"
-    private val apiTimeoutMs = 45_000
     private lateinit var store: SecureStore
     private lateinit var queue: CaptureQueue
 
@@ -22,7 +18,7 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.i(logTag, "Notification listener connected")
-        Thread { flushQueue() }.start()
+        CaptureSync.enqueue(this)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -67,48 +63,9 @@ class NotificationCaptureService : NotificationListenerService() {
         val finalCreditCardId = if (isCreditCard) creditCardId else 0L
 
         Thread {
-            queue.add(finalTransaction, finalWalletId, finalCreditCardId)
-            flushQueue()
-        }.start()
-    }
-
-    private fun flushQueue() {
-        val cookie = store.get("cookie") ?: run {
-            Log.w(logTag, "Queue not sent: no login cookie")
-            return
-        }
-        val apiBase = store.get("api_base")?.trimEnd('/') ?: run {
-            Log.w(logTag, "Queue not sent: no API URL")
-            return
-        }
-        Log.d(logTag, "Sending queue: items=${queue.all().size}")
-        for (payload in queue.all()) {
-            if (send(payload, cookie, apiBase)) queue.remove(payload.optString("external_id"))
-        }
-    }
-
-    private fun send(payload: JSONObject, cookie: String, apiBase: String): Boolean {
-        val connection = (URL("$apiBase/api/captured-transactions").openConnection() as HttpURLConnection)
-        try {
-            connection.requestMethod = "POST"
-            connection.connectTimeout = apiTimeoutMs
-            connection.readTimeout = apiTimeoutMs
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Cookie", cookie)
-
-            connection.outputStream.use { it.write(payload.toString().toByteArray()) }
-            val responseCode = connection.responseCode
-            val responseStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val responseBody = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (responseCode in 200..299) {
-                Log.i(logTag, "Capture API response: HTTP $responseCode")
-            } else {
-                Log.w(logTag, "Capture API response: HTTP $responseCode body=${responseBody.take(240)}")
+            if (queue.add(finalTransaction, finalWalletId, finalCreditCardId)) {
+                CaptureSync.enqueue(this)
             }
-            return responseCode in 200..299
-        } finally {
-            connection.disconnect()
-        }
+        }.start()
     }
 }

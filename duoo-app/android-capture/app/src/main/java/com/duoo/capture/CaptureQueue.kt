@@ -5,18 +5,35 @@ import org.json.JSONObject
 
 class CaptureQueue(private val store: SecureStore) {
     @Synchronized
-    fun add(transaction: CapturedTransaction, walletId: Long, creditCardId: Long) {
+    fun add(transaction: CapturedTransaction, walletId: Long, creditCardId: Long): Boolean {
         val queue = read()
         for (index in 0 until queue.length()) {
-            if (queue.getJSONObject(index).optString("external_id") == transaction.externalId) return
+            if (queue.getJSONObject(index).optString("external_id") == transaction.externalId) return false
         }
         queue.put(toJson(transaction, walletId, creditCardId))
-        while (queue.length() > MAX_ITEMS) queue.remove(0)
+        var dropped = 0
+        while (queue.length() > MAX_ITEMS) {
+            queue.remove(0)
+            dropped++
+        }
+        if (dropped > 0) {
+            val previous = store.get(DROPPED_KEY)?.toIntOrNull() ?: 0
+            store.put(DROPPED_KEY, (previous + dropped).toString())
+        }
         store.put(KEY, queue.toString())
+        return true
     }
 
     @Synchronized
-    fun all(): List<JSONObject> = (0 until read().length()).map { read().getJSONObject(it) }
+    fun all(): List<JSONObject> {
+        val queue = read()
+        return (0 until queue.length()).map { queue.getJSONObject(it) }
+    }
+
+    @Synchronized
+    fun size(): Int = read().length()
+
+    fun droppedCount(): Int = store.get(DROPPED_KEY)?.toIntOrNull() ?: 0
 
     @Synchronized
     fun remove(externalId: String) {
@@ -53,6 +70,7 @@ class CaptureQueue(private val store: SecureStore) {
 
     companion object {
         private const val KEY = "pending_transactions"
+        private const val DROPPED_KEY = "dropped_transactions"
         private const val MAX_ITEMS = 100
     }
 }

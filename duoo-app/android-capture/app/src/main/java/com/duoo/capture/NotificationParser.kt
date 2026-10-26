@@ -1,7 +1,6 @@
 package com.duoo.capture
 
 import android.service.notification.StatusBarNotification
-import android.util.Log
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -36,8 +35,6 @@ object NotificationParser {
         val textLines = extras.getCharSequenceArray("android.textLines")?.joinToString(" ").orEmpty()
         val body = listOf(title, text, bigText, subText, textLines).filter { it.isNotBlank() }.distinct().joinToString(" ").trim()
         if (body.isBlank()) return null
-        Log.d("DuooParser", "package=${notification.packageName} body=${body.replace(Regex("[0-9]"), "#").take(240)}")
-
         val match = currencyAmountPattern.find(body) ?: amountPattern.find(body) ?: return null
         val amount = match.groupValues[1]
             .replace(".", "")

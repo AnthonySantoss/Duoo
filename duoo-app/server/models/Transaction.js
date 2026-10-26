@@ -58,8 +58,7 @@ const Transaction = sequelize.define('Transaction', {
     },
     source_external_id: {
         type: DataTypes.STRING(128),
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
     source_package: {
         type: DataTypes.STRING(160),
@@ -94,6 +93,7 @@ const Transaction = sequelize.define('Transaction', {
         { name: 'idx_transactions_user_date', fields: ['user_id', 'date'] },
         { name: 'idx_transactions_wallet_date', fields: ['wallet_id', 'date'] },
         { name: 'idx_transactions_wallet_ext_id', fields: ['wallet_id', 'source_external_id'] },
+        { name: 'idx_transactions_user_source_external_unique', unique: true, fields: ['user_id', 'source_external_id'] },
         { name: 'idx_transactions_user_type_date', fields: ['user_id', 'type', 'date'] },
         { name: 'idx_transactions_user_category_date', fields: ['user_id', 'category', 'date'] }
     ]

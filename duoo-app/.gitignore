@@ -2,7 +2,9 @@ node_modules/
 .gradle/
 .idea/
 android-capture/.gradle/
+android-capture/.kotlin/
 android-capture/.idea/
+android-capture/app/build/
 dist/
 dev-dist/
 .env
@@ -13,3 +15,4 @@ dev-dist/
 *.sqlite-journal
 *.log
 coverage/
+server/releases/*.apk

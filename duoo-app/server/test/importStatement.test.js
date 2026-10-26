@@ -62,7 +62,7 @@ test('previewStatement detects duplicates by FITID and normalized date/amount/ti
     const user = await User.create({
         name: 'Dedup Tester',
         email: `tester-${Date.now()}@example.com`,
-        password: 'hashed-password-123'
+        password_hash: 'hashed-password-123'
     });
 
     const wallet = await Wallet.create({
@@ -193,7 +193,7 @@ test('confirmStatement saves selected transactions and updates wallet balance', 
     const user = await User.create({
         name: 'Confirm Tester',
         email: `confirm-${Date.now()}@example.com`,
-        password: 'hashed-password-123'
+        password_hash: 'hashed-password-123'
     });
 
     const wallet = await Wallet.create({

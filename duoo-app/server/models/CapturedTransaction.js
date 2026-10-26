@@ -41,7 +41,7 @@ const CapturedTransaction = sequelize.define('CapturedTransaction', {
     timestamps: true,
     indexes: [
         { name: 'idx_captured_tx_user_status_date', fields: ['user_id', 'status', 'captured_at'] },
-        { name: 'idx_captured_tx_user_hash', fields: ['user_id', 'notification_hash'] }
+        { name: 'idx_captured_tx_user_hash', unique: true, fields: ['user_id', 'notification_hash'] }
     ]
 });
 

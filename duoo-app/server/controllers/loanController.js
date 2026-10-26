@@ -1,12 +1,24 @@
-const { Loan, Goal, User, Wallet, Transaction } = require('../models');
+const { sequelize, Loan, Goal, User, Wallet, Transaction } = require('../models');
 const { Op } = require('sequelize');
+
+async function getCoupleUserIds(userId, transaction) {
+    const user = await User.findByPk(userId, { transaction });
+    if (!user) return [];
+    return user.partner_id ? [user.id, user.partner_id] : [user.id];
+}
+
+function accessibleGoalWhere(goalId, userId, partnerId) {
+    const ownership = [{ user_id: userId }];
+    if (partnerId) ownership.push({ user_id: partnerId, is_joint: true });
+    return { id: goalId, [Op.or]: ownership };
+}
 
 exports.getLoans = async (req, res) => {
     try {
         const userId = req.user.id;
-        // Optionally handle viewMode if needed, but for now just get user's loans
+        const coupleUserIds = await getCoupleUserIds(userId);
         const loans = await Loan.findAll({
-            where: { user_id: userId },
+            where: { user_id: { [Op.in]: coupleUserIds } },
             include: [
                 { model: Goal, attributes: ['title'] },
                 { model: User, attributes: ['name'] }
@@ -39,26 +51,58 @@ exports.getLoans = async (req, res) => {
 };
 
 exports.createLoan = async (req, res) => {
+    let dbTransaction;
     try {
+        dbTransaction = await sequelize.transaction();
         const userId = req.user.id;
         const { goal_id, wallet_id, amount, installments, interest_rate } = req.body;
 
-        if (!wallet_id) return res.status(400).json({ error: 'Wallet is required' });
-
-        const goal = await Goal.findOne({ where: { id: goal_id } }); // Add user check if strict
-        if (!goal) return res.status(404).json({ error: 'Goal not found' });
-
-        const wallet = await Wallet.findOne({ where: { id: wallet_id, user_id: userId } });
-        if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
-
-        if (parseFloat(goal.current_amount) < parseFloat(amount)) {
-            return res.status(400).json({ error: 'Insufficient funds in goal' });
+        if (!wallet_id) {
+            await dbTransaction.rollback();
+            return res.status(400).json({ error: 'Wallet is required' });
         }
 
-        // Calculate totals
-        const principal = parseFloat(amount);
-        const rate = parseFloat(interest_rate);
-        const months = parseInt(installments);
+        const coupleUserIds = await getCoupleUserIds(userId, dbTransaction);
+        if (coupleUserIds.length === 0) {
+            await dbTransaction.rollback();
+            return res.status(401).json({ error: 'User not found' });
+        }
+        const partnerId = coupleUserIds.find(id => id !== userId);
+
+        const goal = await Goal.findOne({
+            where: accessibleGoalWhere(goal_id, userId, partnerId),
+            transaction: dbTransaction,
+            lock: dbTransaction.LOCK.UPDATE
+        });
+        if (!goal) {
+            await dbTransaction.rollback();
+            return res.status(404).json({ error: 'Goal not found' });
+        }
+
+        const wallet = await Wallet.findOne({
+            where: { id: wallet_id, user_id: userId },
+            transaction: dbTransaction,
+            lock: dbTransaction.LOCK.UPDATE
+        });
+        if (!wallet) {
+            await dbTransaction.rollback();
+            return res.status(404).json({ error: 'Wallet not found' });
+        }
+
+        const principal = Number(amount);
+        const rate = Number(interest_rate);
+        const months = Number(installments);
+        if (!Number.isFinite(principal) || principal <= 0 ||
+            !Number.isFinite(rate) || rate < 0 ||
+            !Number.isInteger(months) || months <= 0) {
+            await dbTransaction.rollback();
+            return res.status(400).json({ error: 'Invalid loan values' });
+        }
+
+        if (parseFloat(goal.current_amount) < principal) {
+            await dbTransaction.rollback();
+            return res.status(400).json({ error: 'Insufficient funds in goal' });
+        }
 
         // Simple Compound Interest formula matching reference: 
         // Total = Valor * (1 + taxa/100)^meses
@@ -67,11 +111,11 @@ exports.createLoan = async (req, res) => {
 
         // 1. Deduct from Goal
         goal.current_amount = parseFloat(goal.current_amount) - principal;
-        await goal.save();
+        await goal.save({ transaction: dbTransaction });
 
         // 2. Add to Wallet
         wallet.balance = parseFloat(wallet.balance) + principal;
-        await wallet.save();
+        await wallet.save({ transaction: dbTransaction });
 
         // 3. Create Transaction (Record the inflow)
         await Transaction.create({
@@ -82,7 +126,7 @@ exports.createLoan = async (req, res) => {
             title: `Empréstimo: ${goal.title}`,
             category: 'Empréstimo',
             date: new Date()
-        });
+        }, { transaction: dbTransaction });
 
         // 4. Create Loan
         const loan = await Loan.create({
@@ -97,45 +141,79 @@ exports.createLoan = async (req, res) => {
             interest_rate: rate,
             status: 'active',
             date: new Date()
-        });
+        }, { transaction: dbTransaction });
+
+        await dbTransaction.commit();
 
         res.status(201).json(loan);
 
     } catch (error) {
+        if (dbTransaction && !dbTransaction.finished) await dbTransaction.rollback();
         console.error('Error creating loan:', error);
         res.status(500).json({ error: 'Failed to create loan' });
     }
 };
 
 exports.payInstallment = async (req, res) => {
+    let dbTransaction;
     try {
+        dbTransaction = await sequelize.transaction();
         const userId = req.user.id;
         const { id } = req.params;
         const { wallet_id } = req.body; // Need wallet to pay form
 
-        if (!wallet_id) return res.status(400).json({ error: 'Wallet is required to pay' });
+        if (!wallet_id) {
+            await dbTransaction.rollback();
+            return res.status(400).json({ error: 'Wallet is required to pay' });
+        }
 
-        const loan = await Loan.findByPk(id);
+        const coupleUserIds = await getCoupleUserIds(userId, dbTransaction);
+        if (coupleUserIds.length === 0) {
+            await dbTransaction.rollback();
+            return res.status(401).json({ error: 'User not found' });
+        }
+        const loan = await Loan.findOne({
+            where: { id, user_id: { [Op.in]: coupleUserIds } },
+            transaction: dbTransaction,
+            lock: dbTransaction.LOCK.UPDATE
+        });
 
-        if (!loan) return res.status(404).json({ error: 'Loan not found' });
-        if (loan.status === 'paid') return res.status(400).json({ error: 'Loan already paid' });
+        if (!loan) {
+            await dbTransaction.rollback();
+            return res.status(404).json({ error: 'Loan not found' });
+        }
+        if (loan.status === 'paid') {
+            await dbTransaction.rollback();
+            return res.status(400).json({ error: 'Loan already paid' });
+        }
 
-        const wallet = await Wallet.findOne({ where: { id: wallet_id, user_id: userId } });
-        if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
+        const wallet = await Wallet.findOne({
+            where: { id: wallet_id, user_id: userId },
+            transaction: dbTransaction,
+            lock: dbTransaction.LOCK.UPDATE
+        });
+        if (!wallet) {
+            await dbTransaction.rollback();
+            return res.status(404).json({ error: 'Wallet not found' });
+        }
 
         const installmentVal = parseFloat(loan.installment_value);
 
         if (parseFloat(wallet.balance) < installmentVal) {
+            await dbTransaction.rollback();
             return res.status(400).json({ error: 'Insufficient funds in wallet' });
         }
 
         // 1. Deduct from Wallet
         wallet.balance = parseFloat(wallet.balance) - installmentVal;
-        await wallet.save();
+        await wallet.save({ transaction: dbTransaction });
 
         // 2. Create Transaction (Expense)
         // Fetch goal title for description
-        const goalForDescription = await Goal.findByPk(loan.goal_id);
+        const goalForDescription = await Goal.findByPk(loan.goal_id, {
+            transaction: dbTransaction,
+            lock: dbTransaction.LOCK.UPDATE
+        });
         await Transaction.create({
             user_id: userId,
             wallet_id: wallet.id,
@@ -144,7 +222,7 @@ exports.payInstallment = async (req, res) => {
             title: `Parc ${loan.installments_paid + 1}/${loan.installments_total}: ${goalForDescription ? goalForDescription.title : 'Empréstimo'}`,
             category: 'Empréstimo',
             date: new Date()
-        });
+        }, { transaction: dbTransaction });
 
         // 3. Update Loan
         loan.installments_paid += 1;
@@ -155,19 +233,21 @@ exports.payInstallment = async (req, res) => {
             loan.remaining_amount = 0;
             loan.status = 'paid';
         }
-        await loan.save();
+        await loan.save({ transaction: dbTransaction });
 
         // 4. Add back to Goal (Principal + Interest part of this installment goes back to goal)
         // logic: Money flows back to goal
-        const goal = await Goal.findByPk(loan.goal_id);
-        if (goal) {
-            goal.current_amount = parseFloat(goal.current_amount) + installmentVal;
-            await goal.save();
+        if (goalForDescription) {
+            goalForDescription.current_amount = parseFloat(goalForDescription.current_amount) + installmentVal;
+            await goalForDescription.save({ transaction: dbTransaction });
         }
+
+        await dbTransaction.commit();
 
         res.json(loan);
 
     } catch (error) {
+        if (dbTransaction && !dbTransaction.finished) await dbTransaction.rollback();
         console.error('Error paying installment:', error);
         res.status(500).json({ error: 'Failed to pay installment' });
     }

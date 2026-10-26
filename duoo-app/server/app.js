@@ -22,6 +22,7 @@ const achievementRoutes = require('./routes/achievementRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const capturedTransactionRoutes = require('./routes/capturedTransactionRoutes');
+const androidAppRoutes = require('./routes/androidAppRoutes');
 const fs = require('fs');
 const path = require('path');
 
@@ -77,6 +78,7 @@ app.use('/api/achievements', achievementRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/captured-transactions', capturedTransactionRoutes);
+app.use('/api/app/android', androidAppRoutes);
 app.use('/api/challenges', require('./routes/challengeRoutes'));
 app.use('/api/recurring', require('./routes/recurringRoutes'));
 app.use('/api/config', require('./routes/configRoutes'));

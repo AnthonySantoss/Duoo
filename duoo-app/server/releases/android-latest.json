@@ -1,0 +1,10 @@
+{
+  "versionCode": 1,
+  "versionName": "0.1.0",
+  "minimumVersionCode": 1,
+  "mandatory": false,
+  "publishedAt": null,
+  "releaseNotes": [
+    "Primeira versão pública do Duoo Capture."
+  ]
+}

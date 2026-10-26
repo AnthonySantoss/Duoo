@@ -1,4 +1,4 @@
-const { sequelize, Transaction, Wallet, CreditCard, CreditCardPurchase, User, UserConfig } = require('../models');
+const { sequelize, Transaction, Wallet, CreditCard, CreditCardPurchase, CapturedTransaction, User, UserConfig } = require('../models');
 const budgetAlertService = require('../services/budgetAlertService');
 const achievementService = require('../services/achievementService');
 const notificationService = require('../services/notificationService');
@@ -20,7 +20,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     const existing = await Transaction.findOne({
-        where: { source_external_id: externalId },
+        where: { source_external_id: externalId, user_id: req.user.id },
         attributes: ['id', 'title', 'amount', 'date', 'type']
     });
 
@@ -45,11 +45,27 @@ exports.create = async (req, res) => {
                 await transaction.rollback();
                 return res.status(404).json({ error: 'Cartão de crédito não encontrado' });
             }
+            const captured = await CapturedTransaction.findOne({
+                where: { user_id: req.user.id, notification_hash: externalId },
+                transaction
+            });
+            if (captured) {
+                await transaction.rollback();
+                return res.status(200).json({ created: false, duplicate: true });
+            }
             const duplicatePurchase = await CreditCardPurchase.findOne({ where: { credit_card_id: card.id, description: title, purchase_date: date || new Date(), total_amount: Math.abs(amount) }, transaction });
             if (duplicatePurchase) {
                 await transaction.rollback();
                 return res.status(200).json({ created: false, duplicate: true, purchase: duplicatePurchase });
             }
+            await CapturedTransaction.create({
+                user_id: req.user.id,
+                status: 'processed',
+                captured_at: date || new Date(),
+                notification_hash: externalId,
+                title,
+                amount: Math.abs(amount)
+            }, { transaction });
             const purchase = await CreditCardPurchase.create({ description: title, category: categoryResult.category, total_amount: Math.abs(amount), installments: 1, installment_amount: Math.abs(amount), remaining_installments: 1, purchase_date: date || new Date(), credit_card_id: card.id, notes: 'Capturado da notificação do cartão' }, { transaction });
             await transaction.commit();
             return res.status(201).json({ created: true, duplicate: false, source_type: sourceType, purchase, category_confidence: categoryResult.confidence });
@@ -105,7 +121,7 @@ exports.create = async (req, res) => {
         await transaction.rollback();
         if (error.name === 'SequelizeUniqueConstraintError') {
             const duplicate = await Transaction.findOne({
-                where: { source_external_id: externalId },
+                where: { source_external_id: externalId, user_id: req.user.id },
                 attributes: ['id', 'title', 'amount', 'date', 'type']
             });
             return res.status(200).json({ created: false, duplicate: true, transaction: duplicate });

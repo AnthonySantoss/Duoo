@@ -46,6 +46,7 @@ async function runAll() {
         require('./models');
         await sequelize.sync({ force: false });
         await require('./migrate-google-oauth')();
+        await require('./migrate-notification-capture')();
         console.log('✅ Base de dados sincronizada.');
     } catch (error) {
         console.error('❌ Erro ao sincronizar base:', error.message);

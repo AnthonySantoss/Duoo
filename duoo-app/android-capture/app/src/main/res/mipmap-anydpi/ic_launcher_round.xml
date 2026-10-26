@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/duoo_icon_background" />
+    <item android:drawable="@drawable/ic_duoo_foreground" android:gravity="center" android:width="64dp" android:height="64dp" />
+</layer-list>
